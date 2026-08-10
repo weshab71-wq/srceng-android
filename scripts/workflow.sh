@@ -40,7 +40,7 @@ EOF
 
 build jni/src/tierhook libtierhook.so
 
-# Enter srcsdk and set up gl4es with a fallback Makefile if missing
+# Enter srcsdk and set up gl4es with Amiga files filtered out
 cd srcsdk/
 rm -rf gl4es
 git clone --depth 1 https://github.com/nillerusr/gl4es.git gl4es || git clone --depth 1 https://github.com/ptitSeb/gl4es.git gl4es
@@ -51,7 +51,9 @@ TARGET = libRegal.so
 CC ?= gcc
 CFLAGS = -fPIC -shared -O2 -Iinclude
 
-SRCS = $(wildcard src/*.c) $(wildcard src/*/*.c)
+# Exclude Amiga (agl) platform files so it doesn't look for non-existent headers
+ALL_SRCS = $(wildcard src/*.c) $(wildcard src/*/*.c) $(wildcard src/*/*/*.c)
+SRCS = $(filter-out src/agl/%, $(ALL_SRCS))
 OBJS = $(SRCS:.c=.o)
 
 all: $(TARGET)
