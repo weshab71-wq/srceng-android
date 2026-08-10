@@ -1,5 +1,6 @@
 #!/bin/bash
 
+export GIT_TERMINAL_PROMPT=0
 export NDK_HOME=$(pwd)/ndk-binaries PATH=$PATH:$(pwd)/ndk-binaries LIBPATH=$(pwd)/libs/armeabi-v7a NDK_TOOLCHAIN_VERSION=4.9
 mkdir -p $LIBPATH
 
@@ -22,13 +23,18 @@ generate_resources()
     echo '</resources>' >> $RES
 }
 
-# Fetch tierhook directly before submodule update can fail
+# Download tierhook directly as a ZIP archive to bypass Git authentication prompts
 mkdir -p jni/src
-if [ ! -d "jni/src/tierhook" ] || [ -z "$(ls -A jni/src/tierhook 2>/dev/null)" ]; then
-    git clone --depth 1 https://github.com/nillerusr/source-tierhook.git jni/src/tierhook || git clone --depth 1 https://github.com/nillerusr/tierhook.git jni/src/tierhook || true
-fi
+rm -rf jni/src/tierhook /tmp/tierhook.zip /tmp/tierhook_extract
 
-git submodule update --init --recursive || true
+curl -sSL "https://github.com/nillerusr/source-tierhook/archive/refs/heads/master.zip" -o /tmp/tierhook.zip || \
+curl -sSL "https://github.com/nillerusr/source-tierhook/archive/refs/heads/main.zip" -o /tmp/tierhook.zip
+
+if [ -f /tmp/tierhook.zip ]; then
+    mkdir -p /tmp/tierhook_extract
+    unzip -q /tmp/tierhook.zip -d /tmp/tierhook_extract
+    mv /tmp/tierhook_extract/* jni/src/tierhook
+fi
 
 build jni/src/tierhook libtierhook.so
 
