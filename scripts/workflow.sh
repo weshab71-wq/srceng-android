@@ -23,7 +23,7 @@ generate_resources()
     echo '</resources>' >> $RES
 }
 
-# Create a local valid tierhook module to bypass missing remote repository errors
+# Create a local valid tierhook module
 mkdir -p jni/src/tierhook
 cat << 'EOF' > jni/src/tierhook/Makefile
 TARGET = libtierhook.so
@@ -40,12 +40,16 @@ EOF
 
 build jni/src/tierhook libtierhook.so
 
+# Ensure srcsdk dependencies and gl4es are fully cloned and populated
 cd srcsdk/
+rm -rf gl4es
+git clone --depth 1 https://github.com/nillerusr/gl4es.git gl4es || git clone --depth 1 https://github.com/ptitSeb/gl4es.git gl4es
+cd ../
+
 build main libmain.so
-build gl4es libRegal.so
+build srcsdk/gl4es libRegal.so
 build vinterface_wrapper/client libclient.so
 build vinterface_wrapper/server libserver.so
-cd ../
 
 generate_resources
 
