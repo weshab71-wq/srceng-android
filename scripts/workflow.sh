@@ -8,17 +8,21 @@ sudo apt-get install -y zlib1g:i386 libstdc++6:i386 libc6:i386
 export GIT_TERMINAL_PROMPT=0
 export NDK_HOME=$(pwd)/ndk-binaries 
 export PATH=$PATH:$(pwd)/ndk-binaries
-# Updated library output folder to arm64-v8a
 export LIBPATH=$(pwd)/libs/arm64-v8a 
 export NDK_TOOLCHAIN_VERSION=4.9
 mkdir -p $LIBPATH
+
+# Setup target NDK headers sysroot for GCC
+SYSROOT=$NDK_HOME/platforms/android-21/arch-arm64
+SYSROOT_INC="-I$SYSROOT/usr/include"
 
 build()
 {
     PW=$(pwd)
     cd $1 || exit 1
-    # Added ARCH=arm64 and NDK_TARGET_ARCH=arm64 flags for NDK build systems
-    make NDK=1 NDK_PATH=$NDK_HOME APP_API_LEVEL=21 CFG=debug NDK_VERBOSE=1 ARCH=arm64 NDK_TARGET_ARCH=arm64 TARGET_ARCH=arm64 -j$(nproc --all) || exit 1
+    make NDK=1 NDK_PATH=$NDK_HOME APP_API_LEVEL=21 CFG=debug NDK_VERBOSE=1 \
+         ARCH=arm64 NDK_TARGET_ARCH=arm64 TARGET_ARCH=arm64 \
+         CFLAGS="$SYSROOT_INC" CXXFLAGS="$SYSROOT_INC" -j$(nproc --all) || exit 1
     cp $2 $LIBPATH && echo $2 Installed || exit 1
     cd $PW
 }
