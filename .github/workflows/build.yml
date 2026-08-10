@@ -15,15 +15,23 @@ jobs:
           sudo pip3 install websocket-client
           git config --global url."https://github.com/".insteadOf "git@github.com:"
           git config --global url."https://gitlab.com/".insteadOf "git@gitlab.com:"
+          sed -i 's|url = \.\./|url = https://github.com/nillerusr/|g' .gitmodules || true
+          git submodule deinit -f --all || true
+          git submodule init
           git submodule sync --recursive
-          git submodule update --init --recursive
+          git submodule update --init --recursive --force || true
           git clone --depth 1 https://gitlab.com/LostGamer/ndk-binaries
           git clone --depth 1 https://gitlab.com/LostGamer/android-sdk
           git clone --depth 1 https://github.com/nillerusr/srcsdk.git
           cd srcsdk
+          git submodule init
           git submodule sync --recursive
-          git submodule update --init --recursive
+          git submodule update --init --recursive --force || true
           cd ../
+          mkdir -p jni/src
+          if [ ! -d "jni/src/tierhook" ] || [ -z "$(ls -A jni/src/tierhook 2>/dev/null)" ]; then
+            git clone --depth 1 https://gitlab.com/LostGamer/tierhook.git jni/src/tierhook || git clone --depth 1 https://github.com/nillerusr/source-tierhook.git jni/src/tierhook || true
+          fi
           DEPLOY_BRANCH=srceng-old-port COMMIT=$(git rev-parse HEAD) scripts/workflow.sh
 
       - name: Upload Build Artifacts
