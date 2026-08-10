@@ -74,20 +74,27 @@ clean:
 EOF
 fi
 
+# Clone SDL2 if missing
+if [ ! -d "sdl2" ] && [ ! -d "SDL" ]; then
+    git clone --depth 1 -b release-2.28.5 https://github.com/libsdl-org/SDL.git sdl2
+fi
+
 # Build core libraries
 build main libmain.so
 build gl4es libRegal.so
 build vinterface_wrapper/client libclient.so
 build vinterface_wrapper/server libserver.so
 
-# Ensure libSDL2.so is compiled or present in srcsdk/sdl2
+# Build SDL2
 if [ -d "sdl2" ]; then
     build sdl2 libSDL2.so
+elif [ -d "SDL" ]; then
+    build SDL libSDL2.so
 fi
 
 cd ../
 
-# If prebuilt libSDL2.so exists in prebuilt/ or libs/, ensure it is copied
+# Ensure any compiled or prebuilt libSDL2.so is moved to the APK library path
 find . -name "libSDL2.so" -exec cp {} $LIBPATH \;
 
 generate_resources
