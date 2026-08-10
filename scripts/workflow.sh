@@ -3,7 +3,7 @@
 # Enable 32-bit architecture and install missing libraries for older Android SDK tools
 sudo dpkg --add-architecture i386
 sudo apt-get update -y
-sudo apt-get install -y zlib1g:i386 libstdc++6:i386 libc6:i386 wget curl
+sudo apt-get install -y zlib1g:i386 libstdc++6:i386 libc6:i386 wget curl unzip
 
 export GIT_TERMINAL_PROMPT=0
 export NDK_HOME=$(pwd)/ndk-binaries 
@@ -81,26 +81,24 @@ build vinterface_wrapper/client libclient.so
 build vinterface_wrapper/server libserver.so
 cd ../
 
-# Only copy libSDL2.so if it is larger than 100KB (filtering out 14-byte Git LFS pointer files)
+# Clean out any fake or tiny libSDL2.so files from LIBPATH first
+rm -f $LIBPATH/libSDL2.so
+
+# Only copy existing libSDL2.so if it is larger than 100KB (filters out 9-byte / 14-byte dummy files)
 find . -iname "libSDL2.so" -size +100k -exec cp {} $LIBPATH \;
 
-# If libSDL2.so is missing or under 100KB, fetch a real compiled binary from GitHub Releases
+# If libSDL2.so is still missing or under 100KB, download real release binary
 if [ ! -f "$LIBPATH/libSDL2.so" ] || [ $(wc -c < "$LIBPATH/libSDL2.so") -lt 100000 ]; then
-    echo "Fetching real libSDL2.so binary..."
+    echo "Downloading valid prebuilt libSDL2.so..."
     rm -f $LIBPATH/libSDL2.so
-    curl -L -o $LIBPATH/libSDL2.so "https://github.com/libsdl-org/SDL/releases/download/release-2.28.5/SDL2-2.28.5-android.main.aar"
-    # Extract native armeabi-v7a libSDL2.so from the downloaded AAR archive
-    if [ -f "$LIBPATH/libSDL2.so" ]; then
-        mkdir -p /tmp/sdl_extract
-        unzip -q $LIBPATH/libSDL2.so -d /tmp/sdl_extract
-        if [ -f "/tmp/sdl_extract/jni/armeabi-v7a/libSDL2.so" ]; then
-            cp /tmp/sdl_extract/jni/armeabi-v7a/libSDL2.so $LIBPATH/libSDL2.so
-        fi
-        rm -rf /tmp/sdl_extract
-    fi
+    curl -L -o /tmp/sdl.aar "https://github.com/libsdl-org/SDL/releases/download/release-2.28.5/SDL2-2.28.5-android.main.aar"
+    mkdir -p /tmp/sdl_extract
+    unzip -q /tmp/sdl.aar -d /tmp/sdl_extract
+    cp /tmp/sdl_extract/jni/armeabi-v7a/libSDL2.so $LIBPATH/libSDL2.so
+    rm -rf /tmp/sdl_extract /tmp/sdl.aar
 fi
 
-echo "libSDL2.so file size:"
+echo "Final libSDL2.so size check:"
 ls -lh $LIBPATH/libSDL2.so
 
 generate_resources
