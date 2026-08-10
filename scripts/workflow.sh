@@ -12,7 +12,7 @@ export LIBPATH=$(pwd)/libs/arm64-v8a
 export NDK_TOOLCHAIN_VERSION=4.9
 mkdir -p $LIBPATH
 
-# Setup target NDK headers sysroot for GCC
+# Setup target NDK headers sysroot for 64-bit ARM
 SYSROOT=$NDK_HOME/platforms/android-21/arch-arm64
 SYSROOT_INC="-I$SYSROOT/usr/include"
 
@@ -37,7 +37,7 @@ generate_resources()
     echo '</resources>' >> $RES
 }
 
-# Create a local valid tierhook module
+# Create a local valid tierhook module with explicit -shared flag
 mkdir -p jni/src/tierhook
 cat << 'EOF' > jni/src/tierhook/Makefile
 TARGET = libtierhook.so
@@ -46,7 +46,7 @@ CFLAGS = -fPIC -shared -O2
 all: $(TARGET)
 
 $(TARGET):
-	$(CC) $(CFLAGS) -o $(TARGET) -x c /dev/null
+	$(CC) $(CFLAGS) -shared -o $(TARGET) -x c /dev/null
 
 clean:
 	rm -f $(TARGET)
@@ -73,7 +73,7 @@ OBJS = $(SRCS:.c=.o)
 all: $(TARGET)
 
 $(TARGET): $(OBJS)
-	$(CC) $(CFLAGS) -o $(TARGET) $(OBJS)
+	$(CC) $(CFLAGS) -shared -o $(TARGET) $(OBJS)
 
 clean:
 	rm -f $(TARGET) $(OBJS)
