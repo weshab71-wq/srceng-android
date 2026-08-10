@@ -12,9 +12,8 @@ export LIBPATH=$(pwd)/libs/arm64-v8a
 export NDK_TOOLCHAIN_VERSION=4.9
 mkdir -p $LIBPATH
 
-# Setup target NDK headers sysroot for 64-bit ARM
+# Target 64-bit ARM sysroot and cross-compiler setup
 SYSROOT=$NDK_HOME/platforms/android-21/arch-arm64
-SYSROOT_INC="-I$SYSROOT/usr/include"
 
 build()
 {
@@ -22,7 +21,8 @@ build()
     cd $1 || exit 1
     make NDK=1 NDK_PATH=$NDK_HOME APP_API_LEVEL=21 CFG=debug NDK_VERBOSE=1 \
          ARCH=arm64 NDK_TARGET_ARCH=arm64 TARGET_ARCH=arm64 \
-         CFLAGS="$SYSROOT_INC" CXXFLAGS="$SYSROOT_INC" -j$(nproc --all) || exit 1
+         CFLAGS="--sysroot=$SYSROOT -I$SYSROOT/usr/include" \
+         CXXFLAGS="--sysroot=$SYSROOT -I$SYSROOT/usr/include" -j$(nproc --all) || exit 1
     cp $2 $LIBPATH && echo $2 Installed || exit 1
     cd $PW
 }
@@ -37,7 +37,7 @@ generate_resources()
     echo '</resources>' >> $RES
 }
 
-# Create a local valid tierhook module with explicit -shared flag
+# Create a local valid tierhook module
 mkdir -p jni/src/tierhook
 cat << 'EOF' > jni/src/tierhook/Makefile
 TARGET = libtierhook.so
