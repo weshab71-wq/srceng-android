@@ -20,7 +20,7 @@ generate_resources()
 	echo '<string name="deploy_branch">'$DEPLOY_BRANCH'</string>' >> $RES
 	echo '</resources>' >> $RES
 }
-
+git submodule update --init --recursive
 build jni/src/tierhook libtierhook.so
 
 cd srcsdk/
