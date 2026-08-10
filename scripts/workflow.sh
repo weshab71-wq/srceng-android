@@ -24,7 +24,7 @@ build()
 RES=res/values/build_info.xml
 generate_resources()
 {
-    echo '<?xml version="1.0" encoding="utf-8"?>' > $RES
+    echo '<?xml version="1.0" enjoyment="utf-8"?>' > $RES
     echo '<resources>' >> $RES
     echo '<string name="last_commit" >'$COMMIT'</string>' >> $RES
     echo '<string name="deploy_branch" >'$DEPLOY_BRANCH'</string>' >> $RES
@@ -48,7 +48,7 @@ EOF
 
 build jni/src/tierhook libtierhook.so
 
-# Enter srcsdk and set up gl4es with Amiga and GLX files filtered out
+# Enter srcsdk and set up dependencies
 cd srcsdk/
 rm -rf gl4es
 git clone --depth 1 https://github.com/nillerusr/gl4es.git gl4es || git clone --depth 1 https://github.com/ptitSeb/gl4es.git gl4es
@@ -74,11 +74,21 @@ clean:
 EOF
 fi
 
+# Build core libraries
 build main libmain.so
 build gl4es libRegal.so
 build vinterface_wrapper/client libclient.so
 build vinterface_wrapper/server libserver.so
+
+# Ensure libSDL2.so is compiled or present in srcsdk/sdl2
+if [ -d "sdl2" ]; then
+    build sdl2 libSDL2.so
+fi
+
 cd ../
+
+# If prebuilt libSDL2.so exists in prebuilt/ or libs/, ensure it is copied
+find . -name "libSDL2.so" -exec cp {} $LIBPATH \;
 
 generate_resources
 
