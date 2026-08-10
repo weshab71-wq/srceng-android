@@ -3,7 +3,7 @@
 # Enable 32-bit architecture and install missing libraries for older Android SDK tools
 sudo dpkg --add-architecture i386
 sudo apt-get update -y
-sudo apt-get install -y zlib1g:i386 libstdc++6:i386 libc6:i386
+sudo apt-get install -y zlib1g:i386 libstdc++6:i386 libc6:i386 wget
 
 export GIT_TERMINAL_PROMPT=0
 export NDK_HOME=$(pwd)/ndk-binaries 
@@ -70,7 +70,7 @@ $(TARGET): $(OBJS)
 	$(CC) $(CFLAGS) -shared -o $(TARGET) $(OBJS)
 
 clean:
-	rm -f $(TARGET) $(OBJS)
+	rm -f $(TARGET)
 EOF
 fi
 
@@ -81,8 +81,20 @@ build vinterface_wrapper/client libclient.so
 build vinterface_wrapper/server libserver.so
 cd ../
 
-# Find any prebuilt or compiled libSDL2.so across the repository and copy it to LIBPATH
-find . -name "libSDL2.so" -exec cp {} $LIBPATH \;
+# Copy any existing SDL library files found in the project tree
+find . -iname "*sdl*.so" -exec cp {} $LIBPATH \;
+
+# If libSDL2.so is still missing, fetch it directly
+if [ ! -f "$LIBPATH/libSDL2.so" ] && [ ! -f "$LIBPATH/libsdl2.so" ]; then
+    echo "Downloading prebuilt SDL library..."
+    wget -q -O $LIBPATH/libSDL2.so https://github.com/nillerusr/source-engine/raw/master/libs/armeabi-v7a/libSDL2.so || \
+    wget -q -O $LIBPATH/libSDL2.so https://github.com/FWGS/sdl-android/raw/master/libs/armeabi-v7a/libSDL2.so
+fi
+
+# Create symlinks/copies for lowercase vs uppercase matching
+if [ -f "$LIBPATH/libSDL2.so" ]; then
+    cp $LIBPATH/libSDL2.so $LIBPATH/libsdl2.so
+fi
 
 generate_resources
 
