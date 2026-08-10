@@ -1,5 +1,10 @@
 #!/bin/bash
 
+# Enable 32-bit architecture and install missing libraries for older Android SDK tools
+sudo dpkg --add-architecture i386
+sudo apt-get update -y
+sudo apt-get install -y zlib1g:i386 libstdc++6:i386 libc6:i386
+
 export GIT_TERMINAL_PROMPT=0
 export NDK_HOME=$(pwd)/ndk-binaries PATH=$PATH:$(pwd)/ndk-binaries LIBPATH=$(pwd)/libs/armeabi-v7a NDK_TOOLCHAIN_VERSION=4.9
 mkdir -p $LIBPATH
