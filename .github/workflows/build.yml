@@ -14,25 +14,10 @@ jobs:
           sudo apt-get install -y make openjdk-8-jdk openjdk-8-jre ant-contrib python3-requests python3-pip
           sudo pip3 install websocket-client
 
-          # Clone missing native C++ source files from upstream
-          git clone --depth 1 https://github.com/nillerusr/srceng-android.git /tmp/srceng_upstream || true
-          if [ -d "/tmp/srceng_upstream/jni" ]; then
-            cp -r /tmp/srceng_upstream/jni .
-          fi
-
-          # Fetch required toolchains and SDKs
+          # Clone dependencies directly to bypass broken submodule links
           git clone --depth 1 https://gitlab.com/LostGamer/ndk-binaries
           git clone --depth 1 https://gitlab.com/LostGamer/android-sdk
           git clone --depth 1 https://github.com/nillerusr/srcsdk.git
-          cd srcsdk
-          git submodule update --init --recursive || true
-          cd ../
-
-          # Ensure tierhook component exists
-          mkdir -p jni/src
-          if [ ! -d "jni/src/tierhook" ] || [ -z "$(ls -A jni/src/tierhook 2>/dev/null)" ]; then
-            git clone --depth 1 https://github.com/nillerusr/source-tierhook.git jni/src/tierhook || true
-          fi
 
           DEPLOY_BRANCH=srceng-old-port COMMIT=$(git rev-parse HEAD) scripts/workflow.sh
 
