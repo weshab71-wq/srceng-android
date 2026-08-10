@@ -7,23 +7,27 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-    - uses: actions/checkout@v2
-    - name: Build
-      run: |
-        sudo apt-get update
-        sudo apt install -y make openjdk-8-jdk openjdk-8-jre ant-contrib python3-requests python3-pip
-        sudo pip3 install websocket-client
-        git clone --depth 1 https://gitlab.com/LostGamer/ndk-binaries
-        git clone --depth 1 https://gitlab.com/LostGamer/android-sdk
-        git clone --depth 1 https://github.com/nillerusr/srcsdk
-        cd srcsdk
-        git submodule init && git submodule update
-        cd ../
-        DEPLOY_BRANCH=srceng-old-port COMMIT=$(git rev-parse HEAD) scripts/workflow.sh
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
 
-    - name: Upload Build Artifacts
-      uses: actions/upload-artifact@v4
-      with:
-        name: build-artifacts
-        path: |
-          bin/*
+      - name: Build
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y make openjdk-8-jdk openjdk-8-jre ant-contrib python3-requests python3-pip
+          sudo pip3 install websocket-client
+          git clone --depth 1 https://gitlab.com/LostGamer/ndk-binaries
+          git clone --depth 1 https://gitlab.com/LostGamer/android-sdk
+          git clone --depth 1 https://github.com/nilleruser/srcsdk
+          cd srcsdk
+          git submodule update --init --recursive
+          cd ../
+          DEPLOY_BRANCH=srceng-old-port COMMIT=$(git rev-parse HEAD) scripts/workflow.sh
+
+      - name: Upload Build Artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: build-artifacts
+          path: |
+            bin/*
+
