@@ -10,7 +10,11 @@ export NDK_HOME=$(pwd)/ndk-binaries
 export PATH=$PATH:$(pwd)/ndk-binaries
 export LIBPATH=$(pwd)/libs/armeabi-v7a 
 export NDK_TOOLCHAIN_VERSION=4.9
+
+# Ensure all lib folder variants exist
 mkdir -p $LIBPATH
+mkdir -p $(pwd)/lib/armeabi-v7a
+mkdir -p $(pwd)/libs/arm
 
 build()
 {
@@ -81,25 +85,37 @@ build vinterface_wrapper/client libclient.so
 build vinterface_wrapper/server libserver.so
 cd ../
 
-# Clean out any fake or tiny libSDL2.so files from LIBPATH first
+# Clean out any dummy/corrupted libSDL2.so files
 rm -f $LIBPATH/libSDL2.so
 
-# Only copy existing libSDL2.so if it is larger than 100KB (filters out 9-byte / 14-byte dummy files)
-find . -iname "libSDL2.so" -size +100k -exec cp {} $LIBPATH \;
+echo "Fetching valid 32-bit libSDL2.so..."
+curl -L -s -o $LIBPATH/libSDL2.so "https://media.githubusercontent.com/media/nillerusr/source-engine/master/libs/armeabi-v7a/libSDL2.so" || \
+curl -L -s -o $LIBPATH/libSDL2.so "https://raw.githubusercontent.com/FWGS/sdl-android/master/libs/armeabi-v7a/libSDL2.so"
 
-# If libSDL2.so is still missing or under 100KB, download real release binary
-if [ ! -f "$LIBPATH/libSDL2.so" ] || [ $(wc -c < "$LIBPATH/libSDL2.so") -lt 100000 ]; then
-    echo "Downloading valid prebuilt libSDL2.so..."
+FILESIZE=$(wc -c < "$LIBPATH/libSDL2.so" 2>/dev/null || echo 0)
+
+if [ "$FILESIZE" -lt 100000 ]; then
+    echo "Direct download failed. Building SDL2 from source..."
     rm -f $LIBPATH/libSDL2.so
-    curl -L -o /tmp/sdl.aar "https://github.com/libsdl-org/SDL/releases/download/release-2.28.5/SDL2-2.28.5-android.main.aar"
-    mkdir -p /tmp/sdl_extract
-    unzip -q /tmp/sdl.aar -d /tmp/sdl_extract
-    cp /tmp/sdl_extract/jni/armeabi-v7a/libSDL2.so $LIBPATH/libSDL2.so
-    rm -rf /tmp/sdl_extract /tmp/sdl.aar
+    git clone --depth 1 -b release-2.0.22 https://github.com/libsdl-org/SDL.git /tmp/sdl_src
+    
+    $NDK_HOME/toolchains/arm-linux-androideabi-4.9/prebuilt/linux-x86_64/bin/arm-linux-androideabi-gcc \
+        --sysroot=$NDK_HOME/platforms/android-19/arch-arm \
+        -fPIC -shared -O2 \
+        -I/tmp/sdl_src/include \
+        /tmp/sdl_src/src/*.c /tmp/sdl_src/src/*/*.c /tmp/sdl_src/src/*/*/*.c /tmp/sdl_src/src/*/*/*/*.c \
+        -o $LIBPATH/libSDL2.so -lm -ldl -llog -landroid
+    rm -rf /tmp/sdl_src
 fi
 
-echo "Final libSDL2.so size check:"
-ls -lh $LIBPATH/libSDL2.so
+# Sync compiled binaries into lib/ and libs/ directories so Ant packages them regardless of structure
+cp -r libs/* lib/ 2>/dev/null || true
+cp -r libs/armeabi-v7a/* libs/arm/ 2>/dev/null || true
+cp -r libs/armeabi-v7a/* lib/armeabi-v7a/ 2>/dev/null || true
+
+echo "Checking lib directories:"
+ls -lh lib/armeabi-v7a/
+ls -lh libs/armeabi-v7a/
 
 generate_resources
 
