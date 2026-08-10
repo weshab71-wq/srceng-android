@@ -24,7 +24,7 @@ build()
 RES=res/values/build_info.xml
 generate_resources()
 {
-    echo '<?xml version="1.0" enjoyment="utf-8"?>' > $RES
+    echo '<?xml version="1.0" encoding="utf-8"?>' > $RES
     echo '<resources>' >> $RES
     echo '<string name="last_commit" >'$COMMIT'</string>' >> $RES
     echo '<string name="deploy_branch" >'$DEPLOY_BRANCH'</string>' >> $RES
