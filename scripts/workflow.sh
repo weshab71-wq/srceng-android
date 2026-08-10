@@ -8,21 +8,15 @@ sudo apt-get install -y zlib1g:i386 libstdc++6:i386 libc6:i386
 export GIT_TERMINAL_PROMPT=0
 export NDK_HOME=$(pwd)/ndk-binaries 
 export PATH=$PATH:$(pwd)/ndk-binaries
-export LIBPATH=$(pwd)/libs/arm64-v8a 
+export LIBPATH=$(pwd)/libs/armeabi-v7a 
 export NDK_TOOLCHAIN_VERSION=4.9
 mkdir -p $LIBPATH
-
-# Target 64-bit ARM sysroot and cross-compiler setup
-SYSROOT=$NDK_HOME/platforms/android-21/arch-arm64
 
 build()
 {
     PW=$(pwd)
     cd $1 || exit 1
-    make NDK=1 NDK_PATH=$NDK_HOME APP_API_LEVEL=21 CFG=debug NDK_VERBOSE=1 \
-         ARCH=arm64 NDK_TARGET_ARCH=arm64 TARGET_ARCH=arm64 \
-         CFLAGS="--sysroot=$SYSROOT -I$SYSROOT/usr/include" \
-         CXXFLAGS="--sysroot=$SYSROOT -I$SYSROOT/usr/include" -j$(nproc --all) || exit 1
+    make NDK=1 NDK_PATH=$NDK_HOME APP_API_LEVEL=19 CFG=debug NDK_VERBOSE=1 -j$(nproc --all) || exit 1
     cp $2 $LIBPATH && echo $2 Installed || exit 1
     cd $PW
 }
