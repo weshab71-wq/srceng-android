@@ -40,10 +40,29 @@ EOF
 
 build jni/src/tierhook libtierhook.so
 
-# Enter srcsdk, populate gl4es, and build everything in the correct path
+# Enter srcsdk and set up gl4es with a fallback Makefile if missing
 cd srcsdk/
 rm -rf gl4es
 git clone --depth 1 https://github.com/nillerusr/gl4es.git gl4es || git clone --depth 1 https://github.com/ptitSeb/gl4es.git gl4es
+
+if [ ! -f gl4es/Makefile ]; then
+    cat << 'EOF' > gl4es/Makefile
+TARGET = libRegal.so
+CC ?= gcc
+CFLAGS = -fPIC -shared -O2 -Iinclude
+
+SRCS = $(wildcard src/*.c) $(wildcard src/*/*.c)
+OBJS = $(SRCS:.c=.o)
+
+all: $(TARGET)
+
+$(TARGET): $(OBJS)
+	$(CC) $(CFLAGS) -o $(TARGET) $(OBJS)
+
+clean:
+	rm -f $(TARGET) $(OBJS)
+EOF
+fi
 
 build main libmain.so
 build gl4es libRegal.so
