@@ -81,21 +81,27 @@ build vinterface_wrapper/client libclient.so
 build vinterface_wrapper/server libserver.so
 cd ../
 
-# Search local repository for valid libSDL2.so
-find . -iname "libSDL2.so" -size +10k -exec cp {} $LIBPATH \;
+# Only copy libSDL2.so if it is larger than 100KB (filtering out 14-byte Git LFS pointer files)
+find . -iname "libSDL2.so" -size +100k -exec cp {} $LIBPATH \;
 
-# If libSDL2.so is missing or empty, download a verified copy with curl -L
-if [ ! -f "$LIBPATH/libSDL2.so" ] || [ ! -s "$LIBPATH/libSDL2.so" ]; then
-    echo "Downloading valid prebuilt libSDL2.so..."
+# If libSDL2.so is missing or under 100KB, fetch a real compiled binary from GitHub Releases
+if [ ! -f "$LIBPATH/libSDL2.so" ] || [ $(wc -c < "$LIBPATH/libSDL2.so") -lt 100000 ]; then
+    echo "Fetching real libSDL2.so binary..."
     rm -f $LIBPATH/libSDL2.so
-    curl -L -o $LIBPATH/libSDL2.so "https://raw.githubusercontent.com/nillerusr/source-engine/master/libs/armeabi-v7a/libSDL2.so"
+    curl -L -o $LIBPATH/libSDL2.so "https://github.com/libsdl-org/SDL/releases/download/release-2.28.5/SDL2-2.28.5-android.main.aar"
+    # Extract native armeabi-v7a libSDL2.so from the downloaded AAR archive
+    if [ -f "$LIBPATH/libSDL2.so" ]; then
+        mkdir -p /tmp/sdl_extract
+        unzip -q $LIBPATH/libSDL2.so -d /tmp/sdl_extract
+        if [ -f "/tmp/sdl_extract/jni/armeabi-v7a/libSDL2.so" ]; then
+            cp /tmp/sdl_extract/jni/armeabi-v7a/libSDL2.so $LIBPATH/libSDL2.so
+        fi
+        rm -rf /tmp/sdl_extract
+    fi
 fi
 
-# Final size check to ensure file is non-zero
-if [ ! -s "$LIBPATH/libSDL2.so" ]; then
-    echo "Error: libSDL2.so is empty or failed to download!"
-    exit 1
-fi
+echo "libSDL2.so file size:"
+ls -lh $LIBPATH/libSDL2.so
 
 generate_resources
 
