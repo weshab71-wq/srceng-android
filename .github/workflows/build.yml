@@ -1,4 +1,4 @@
-Name: Build android package
+name: Build android package
 
 on: [push, pull_request]
 
@@ -19,8 +19,7 @@ jobs:
           git clone --depth 1 https://gitlab.com/LostGamer/android-sdk
           git clone --depth 1 https://github.com/nillerusr/srcsdk.git
 
-          # Added TARGET_ARCH=arm64-v8a and ARCH=aarch64 to force 64-bit output
-          TARGET_ARCH=arm64-v8a ARCH=aarch64 DEPLOY_BRANCH=srceng-old-port COMMIT=$(git rev-parse HEAD) scripts/workflow.sh
+          DEPLOY_BRANCH=srceng-old-port COMMIT=$(git rev-parse HEAD) TARGET_ARCH=arm64-v8a ARCH=aarch64 scripts/workflow.sh
 
       - name: Upload Build Artifacts
         uses: actions/upload-artifact@v4
