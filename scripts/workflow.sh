@@ -23,11 +23,19 @@ generate_resources()
     echo '</resources>' >> $RES
 }
 
-# Clone tierhook directly via https to avoid submodule authentication prompts
-rm -rf jni/src/tierhook
+# Download tierhook using codeload to completely bypass git authentication
 mkdir -p jni/src
-git clone --depth 1 https://github.com/nillerusr/source-tierhook.git jni/src/tierhook || \
-git clone --depth 1 https://github.com/nillerusr/tierhook.git jni/src/tierhook
+rm -rf jni/src/tierhook /tmp/tierhook.zip /tmp/tierhook_extract
+
+curl -sSL "https://codeload.github.com/nillerusr/source-tierhook/zip/master" -o /tmp/tierhook.zip || \
+curl -sSL "https://codeload.github.com/nillerusr/tierhook/zip/master" -o /tmp/tierhook.zip || \
+curl -sSL "https://gitlab.com/LostGamer/tierhook/-/archive/master/tierhook-master.zip" -o /tmp/tierhook.zip
+
+if [ -f /tmp/tierhook.zip ]; then
+    mkdir -p /tmp/tierhook_extract
+    unzip -q /tmp/tierhook.zip -d /tmp/tierhook_extract
+    mv /tmp/tierhook_extract/* jni/src/tierhook
+fi
 
 build jni/src/tierhook libtierhook.so
 
