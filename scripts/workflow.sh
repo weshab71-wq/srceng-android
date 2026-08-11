@@ -143,7 +143,10 @@ sed -i 's/$(call import-module,android\/cpufeatures)/# disabled cpufeatures impo
 # Strip warning flags to prevent GCC 4.9 errors
 sed -i '/-W/d' /tmp/sdl_src/Android.mk
 
-# Empty out the problematic C source files directly so nothing gets compiled or included
+# Force directory creation first, then stub out C source files
+mkdir -p /tmp/sdl_src/src/audio/opensles
+mkdir -p /tmp/sdl_src/src/audio/aaudio
+
 echo "" > /tmp/sdl_src/src/audio/opensles/SDL_opensles.c
 echo "" > /tmp/sdl_src/src/audio/aaudio/SDL_aaudio.c
 
@@ -161,6 +164,7 @@ NDK_MODULE_PATH="$NDK_HOME/sources" "$NDK_HOME/ndk-build" \
     NDK_APPLICATION_MK=/tmp/sdl_src/Application.mk \
     NDK_TOOLCHAIN_VERSION=4.9 \
     -j$(nproc --all) || exit 1
+
 
 
 
