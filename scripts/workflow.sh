@@ -130,81 +130,22 @@ build vinterface_wrapper/client libclient.so
 build vinterface_wrapper/server libserver.so
 
 cd "$ROOT_DIR"
-rm -f 
+rm -f "$LIBPATH/libSDL2.so"
 
 # 5. Robust SDL2 Source Compilation
 echo "Building SDL2 natively using NDK..."
 rm -rf /tmp/sdl_src
 git clone --depth 1 -b release-2.0.22 https://github.com/libsdl-org/SDL.git /tmp/sdl_src
 
-# Forcefully remove OpenSLES and AAudio sources to prevent API 19 build attempts
-rm -rf /tmp/sdl_src/src/audio/opensles
-rm -rf /tmp/sdl_src/src/audio/aaudio
-mkdir -p /tmp/sdl_src/src/audio/opensles
-mkdir -p /tmp/sdl_src/src/audio/aaudio
-
-# Disable external module call
+# Disable external cpufeatures module call
 sed -i 's/$(call import-module,android\/cpufeatures)/# disabled cpufeatures import/g' /tmp/sdl_src/Android.mk
 
 # Strip warning flags to prevent GCC 4.9 errors
 sed -i '/-W/d' /tmp/sdl_src/Android.mk
 
-cat << 'EOF' > /tmp/sdl_src/Application.mk
-APP_ABI := armeabi-v7a
-APP_PLATFORM := android-19
-APP_STL := stlport_static
-APP_CFLAGS := -w -Wno-error
-EOF
-
-# Run ndk-build
-NDK_MODULE_PATH="$NDK_HOME/sources" "$NDK_HOME/ndk-build" \
-    NDK_PROJECT_PATH=/tmp/sdl_src \
-    APP_BUILD_SCRIPT=/tmp/sdl_src/Android.mk \
-    NDK_APPLICATION_MK=/tmp/sdl_src/Application.mk \
-    NDK_TOOLCHAIN_VERSION=4.9 \
-    -j$(nproc --all) || exit 1
-
-
-# Disable external module call
-sed -i 's/$(call import-module,android\/cpufeatures)/# disabled cpufeatures import/g' /tmp/sdl_src/Android.mk
-
-# Strip warning flags to prevent GCC 4.9 errors
-sed -i '/-W/d' /tmp/sdl_src/Android.mk
-
-# Stub out OpenSLES and AAudio source files to bypass API 19 header mismatches
-if [ -f "/tmp/sdl_src/src/audio/opensles/SDL_opensles.c" ]; then
-    echo "// OpenSLES disabled for API 19 compatibility" > /tmp/sdl_src/src/audio/opensles/SDL_opensles.c
-fi
-
-if [ -f "/tmp/sdl_src/src/audio/aaudio/SDL_aaudio.c" ]; then
-    echo "// AAudio disabled for API 19 compatibility" > /tmp/sdl_src/src/audio/aaudio/SDL_aaudio.c
-fi
-
-cat << 'EOF' > /tmp/sdl_src/Application.mk
-APP_ABI := armeabi-v7a
-APP_PLATFORM := android-19
-APP_STL := stlport_static
-APP_CFLAGS := -w -Wno-error
-EOF
-
-# Run ndk-build
-NDK_MODULE_PATH="$NDK_HOME/sources" "$NDK_HOME/ndk-build" \
-    NDK_PROJECT_PATH=/tmp/sdl_src \
-    APP_BUILD_SCRIPT=/tmp/sdl_src/Android.mk \
-    NDK_APPLICATION_MK=/tmp/sdl_src/Application.mk \
-    NDK_TOOLCHAIN_VERSION=4.9 \
-    -j$(nproc --all) || exit 1
-
-# Disable external module call
-sed -i 's/$(call import-module,android\/cpufeatures)/# disabled cpufeatures import/g' /tmp/sdl_src/Android.mk
-
-# Strip warning flags to prevent GCC 4.9 errors
-sed -i '/-W/d' /tmp/sdl_src/Android.mk
-
-# Stub out OpenSLES source file to bypass API 19 header mismatches
-if [ -f "/tmp/sdl_src/src/audio/opensles/SDL_opensles.c" ]; then
-    echo "// OpenSLES disabled for API 19 compatibility" > /tmp/sdl_src/src/audio/opensles/SDL_opensles.c
-fi
+# Strip OpenSLES and AAudio directly out of Android.mk source rules
+sed -i '/opensles/d' /tmp/sdl_src/Android.mk
+sed -i '/aaudio/d' /tmp/sdl_src/Android.mk
 
 cat << 'EOF' > /tmp/sdl_src/Application.mk
 APP_ABI := armeabi-v7a
