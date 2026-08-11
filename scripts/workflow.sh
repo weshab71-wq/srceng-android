@@ -143,11 +143,14 @@ sed -i 's/$(call import-module,android\/cpufeatures)/# disabled cpufeatures impo
 # Strip warning flags to prevent GCC 4.9 errors
 sed -i '/-W/d' /tmp/sdl_src/Android.mk
 
-# Ensure directories exist and blank out sub-makefiles so no OpenSLES/AAudio objects are built
-mkdir -p /tmp/sdl_src/src/audio/opensles
-mkdir -p /tmp/sdl_src/src/audio/aaudio
-echo "# OpenSLES disabled" > /tmp/sdl_src/src/audio/opensles/Android.mk
-echo "# AAudio disabled" > /tmp/sdl_src/src/audio/aaudio/Android.mk
+# Overwrite C files directly with empty dummy code
+cat << 'EOF' > /tmp/sdl_src/src/audio/opensles/SDL_opensles.c
+// OpenSLES stubbed out for API 19 compatibility
+EOF
+
+cat << 'EOF' > /tmp/sdl_src/src/audio/aaudio/SDL_aaudio.c
+// AAudio stubbed out for API 19 compatibility
+EOF
 
 cat << 'EOF' > /tmp/sdl_src/Application.mk
 APP_ABI := armeabi-v7a
@@ -163,6 +166,7 @@ NDK_MODULE_PATH="$NDK_HOME/sources" "$NDK_HOME/ndk-build" \
     NDK_APPLICATION_MK=/tmp/sdl_src/Application.mk \
     NDK_TOOLCHAIN_VERSION=4.9 \
     -j$(nproc --all) || exit 1
+
 
 
 
