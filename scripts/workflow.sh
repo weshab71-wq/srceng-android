@@ -147,20 +147,27 @@ sed -i 's/$(call import-module,android\/cpufeatures)/# disabled cpufeatures impo
 # Strip warning flags to prevent GCC 4.9 errors
 sed -i '/-W/d' /tmp/sdl_src/Android.mk
 
-# Disable AAudio across all configuration headers
+# Disable AAudio and OpenSL ES across all configuration headers
 find /tmp/sdl_src -name "SDL_config*.h" -exec sed -i 's/#define SDL_AUDIO_DRIVER_AAUDIO 1/#define SDL_AUDIO_DRIVER_AAUDIO 0/g' {} +
+find /tmp/sdl_src -name "SDL_config*.h" -exec sed -i 's/#define SDL_AUDIO_DRIVER_OPENSLES 1/#define SDL_AUDIO_DRIVER_OPENSLES 0/g' {} +
 
-# Neutralize AAudio source files directly so no AAudio headers are ever requested
+# Neutralize AAudio source files
 if [ -d "/tmp/sdl_src/src/audio/aaudio" ]; then
     echo "// AAudio disabled for API 19" > /tmp/sdl_src/src/audio/aaudio/SDL_aaudio.c
     echo "// AAudio disabled for API 19" > /tmp/sdl_src/src/audio/aaudio/SDL_aaudio.h
+fi
+
+# Neutralize OpenSL ES source files to route audio strictly through Android AudioTrack
+if [ -d "/tmp/sdl_src/src/audio/opensLES" ]; then
+    echo "// OpenSL ES disabled for legacy NDK API 19" > /tmp/sdl_src/src/audio/opensLES/SDL_openslES.c
+    echo "// OpenSL ES disabled for legacy NDK API 19" > /tmp/sdl_src/src/audio/opensLES/SDL_openslES.h
 fi
 
 cat << 'EOF' > /tmp/sdl_src/Application.mk
 APP_ABI := armeabi-v7a
 APP_PLATFORM := android-19
 APP_STL := stlport_static
-APP_CFLAGS := -w -Wno-error -DSDL_AUDIO_DRIVER_AAUDIO=0
+APP_CFLAGS := -w -Wno-error -DSDL_AUDIO_DRIVER_AAUDIO=0 -DSDL_AUDIO_DRIVER_OPENSLES=0
 EOF
 
 # Run ndk-build
