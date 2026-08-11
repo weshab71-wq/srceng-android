@@ -30,11 +30,16 @@ build()
 RES=res/values/build_info.xml
 generate_resources()
 {
-    echo '<?xml version="1.0" utf-8"?>' > $RES
-    echo '<resources>' >> $RES
-    echo '<string name="last_commit" >'$COMMIT'</string>' >> $RES
-    echo '<string name="deploy_branch" >'$DEPLOY_BRANCH'</string>' >> $RES
-    echo '</resources>' >> $RES
+    SAFE_COMMIT=$(echo "${COMMIT:-unknown}" | sed 's/"/\\"/g')
+    SAFE_BRANCH=$(echo "${DEPLOY_BRANCH:-main}" | sed 's/"/\\"/g')
+
+    cat << EOF > $RES
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="last_commit">${SAFE_COMMIT}</string>
+    <string name="deploy_branch">${SAFE_BRANCH}</string>
+</resources>
+EOF
 }
 
 # Create a local valid tierhook module
@@ -121,10 +126,6 @@ cp -f $LIBPATH/*.so lib/arm/ 2>/dev/null || true
 mkdir -p jniLibs/armeabi-v7a jniLibs/arm
 cp -f $LIBPATH/*.so jniLibs/armeabi-v7a/
 cp -f $LIBPATH/*.so jniLibs/arm/
-
-echo "--- Verifying lib locations ---"
-ls -lh libs/armeabi-v7a/libSDL2.so
-ls -lh libs/arm/libSDL2.so
 
 generate_resources
 
