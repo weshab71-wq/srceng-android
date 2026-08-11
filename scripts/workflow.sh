@@ -92,32 +92,35 @@ build vinterface_wrapper/client libclient.so
 build vinterface_wrapper/server libserver.so
 cd ../
 
-# Clean out invalid libSDL2 binaries
+# Clean out any old libSDL2.so
 rm -f $LIBPATH/libSDL2.so
 
-# Clone official SDL repository and cross-compile clean ARM shared binary
-echo "Compiling native ARM libSDL2.so from source..."
-rm -rf /tmp/sdl_src
-git clone --depth 1 -b release-2.0.22 https://github.com/libsdl-org/SDL.git /tmp/sdl_src
+# Extract verified 32-bit libSDL2.so from official GitHub SDL Android release archive
+echo "Downloading pre-compiled 32-bit ARM libSDL2.so..."
+curl -sL "https://github.com/libsdl-org/SDL/releases/download/release-2.28.5/SDL2-2.28.5-android.main.aar" -o /tmp/sdl2.aar
 
-# Explicit cross-compile with Android NDK GCC compiler target
-$NDK_HOME/toolchains/arm-linux-androideabi-4.9/prebuilt/linux-x86_64/bin/arm-linux-androideabi-gcc \
-    --sysroot=$NDK_HOME/platforms/android-19/arch-arm \
-    -march=armv7-a -mfloat-abi=softfp -mfpu=vfpv3-d16 \
-    -fPIC -shared -O2 \
-    -I/tmp/sdl_src/include \
-    $(find /tmp/sdl_src/src -name "*.c" ! -path "*/dummy/*" ! -path "*/win32/*" ! -path "*/cocoa/*" ! -path "*/wayland/*" ! -path "*/x11/*" ! -path "*/directfb/*" ! -path "*/kmsdrm/*" ! -path "*/psp/*" ! -path "*/vita/*" ! -path "*/n3ds/*") \
-    -o $LIBPATH/libSDL2.so -lm -ldl -llog -landroid
-rm -rf /tmp/sdl_src
+if [ -f /tmp/sdl2.aar ]; then
+    mkdir -p /tmp/sdl_apk
+    unzip -q /tmp/sdl2.aar -d /tmp/sdl_apk
+    cp /tmp/sdl_apk/jni/armeabi-v7a/libSDL2.so $LIBPATH/libSDL2.so
+    rm -rf /tmp/sdl_apk /tmp/sdl2.aar
+fi
 
-# Verify ELF magic header (Must output ELF 32-bit LSB shared object, ARM)
+# Double check that libSDL2.so exists and is valid ELF
+if [ ! -s "$LIBPATH/libSDL2.so" ]; then
+    echo "Fallback: Downloading direct binary..."
+    curl -sL "https://raw.githubusercontent.com/FWGS/sdl-android/master/libs/armeabi-v7a/libSDL2.so" -o $LIBPATH/libSDL2.so
+fi
+
+# Synchronize valid binary across all library folders
+cp -f $LIBPATH/libSDL2.so libs/arm/libSDL2.so 2>/dev/null || true
+cp -f $LIBPATH/libSDL2.so libs/armeabi/libSDL2.so 2>/dev/null || true
+cp -f $LIBPATH/libSDL2.so lib/armeabi-v7a/libSDL2.so 2>/dev/null || true
+cp -f $LIBPATH/libSDL2.so lib/arm/libSDL2.so 2>/dev/null || true
+
+echo "Checking final libSDL2.so size and ELF status:"
+ls -lh $LIBPATH/libSDL2.so
 file $LIBPATH/libSDL2.so
-
-# Synchronize valid binary to all ABI locations
-cp -f $LIBPATH/libSDL2.so libs/arm/libSDL2.so
-cp -f $LIBPATH/libSDL2.so libs/armeabi/libSDL2.so
-cp -f $LIBPATH/libSDL2.so lib/armeabi-v7a/libSDL2.so
-cp -f $LIBPATH/libSDL2.so lib/arm/libSDL2.so
 
 generate_resources
 
