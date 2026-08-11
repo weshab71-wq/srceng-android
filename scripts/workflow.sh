@@ -68,7 +68,7 @@ mkdir -p /tmp/libjpeg_src
 git clone --depth 1 -b 2.0.6 https://github.com/libjpeg-turbo/libjpeg-turbo.git /tmp/libjpeg_src
 cd /tmp/libjpeg_src
 
-# Full configuration header including JPEG_LIB_VERSION
+# Full configuration header including JPEG_LIB_VERSION and INLINE
 cat << 'EOF' > jconfig.h
 #define JPEG_LIB_VERSION 62
 #define LIBJPEG_TURBO_VERSION "2.0.6"
@@ -79,17 +79,18 @@ cat << 'EOF' > jconfig.h
 #define HAVE_STDLIB_H 1
 #define BITS_IN_JSAMPLE 8
 #define HAVE_LOCALE_H 1
+#define INLINE __inline__
 EOF
 
-# Build Android.mk dynamically by filtering out executable programs
+# Exclude standalone utilities and internal extension files
 cat << 'EOF' > Android.mk
 LOCAL_PATH := $(call my-dir)
 include $(CLEAR_VARS)
 LOCAL_MODULE := jpeg
 ALL_C := $(notdir $(wildcard $(LOCAL_PATH)/*.c))
-EXCLUDE_C := cjpeg.c djpeg.c jpegtran.c rdjpgcom.c wrjpgcom.c tjbench.c tjexample.c
+EXCLUDE_C := cjpeg.c djpeg.c jpegtran.c rdjpgcom.c wrjpgcom.c tjbench.c tjexample.c jccolext.c jdcolext.c jdmrgext.c
 LOCAL_SRC_FILES := $(filter-out $(EXCLUDE_C), $(ALL_C))
-LOCAL_CFLAGS := -DJPEG_LIB_VERSION=62
+LOCAL_CFLAGS := -DJPEG_LIB_VERSION=62 -DINLINE=__inline__
 include $(BUILD_STATIC_LIBRARY)
 EOF
 
