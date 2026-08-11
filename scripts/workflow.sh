@@ -92,35 +92,34 @@ build vinterface_wrapper/client libclient.so
 build vinterface_wrapper/server libserver.so
 cd ../
 
-# Clean out any old libSDL2.so
+# Clean out any old or pointer libSDL2.so files
 rm -f $LIBPATH/libSDL2.so
 
-# Extract verified 32-bit libSDL2.so from official GitHub SDL Android release archive
-echo "Downloading pre-compiled 32-bit ARM libSDL2.so..."
-curl -sL "https://github.com/libsdl-org/SDL/releases/download/release-2.28.5/SDL2-2.28.5-android.main.aar" -o /tmp/sdl2.aar
+# Clone SDL2 source and compile directly using NDK ndk-build
+echo "Building libSDL2.so natively from source with ndk-build..."
+rm -rf /tmp/sdl_build
+git clone --depth 1 -b release-2.0.22 https://github.com/libsdl-org/SDL.git /tmp/sdl_build
 
-if [ -f /tmp/sdl2.aar ]; then
-    mkdir -p /tmp/sdl_apk
-    unzip -q /tmp/sdl2.aar -d /tmp/sdl_apk
-    cp /tmp/sdl_apk/jni/armeabi-v7a/libSDL2.so $LIBPATH/libSDL2.so
-    rm -rf /tmp/sdl_apk /tmp/sdl2.aar
+cd /tmp/sdl_build
+$NDK_HOME/ndk-build NDK_PROJECT_PATH=. APP_BUILD_SCRIPT=Android.mk APP_ABI=armeabi-v7a NDK_OUT=./obj NDK_LIBS_OUT=./libs -j$(nproc --all)
+cd $PW
+
+# Copy compiled shared object
+if [ -f "/tmp/sdl_build/libs/armeabi-v7a/libSDL2.so" ]; then
+    cp /tmp/sdl_build/libs/armeabi-v7a/libSDL2.so $LIBPATH/libSDL2.so
 fi
 
-# Double check that libSDL2.so exists and is valid ELF
-if [ ! -s "$LIBPATH/libSDL2.so" ]; then
-    echo "Fallback: Downloading direct binary..."
-    curl -sL "https://raw.githubusercontent.com/FWGS/sdl-android/master/libs/armeabi-v7a/libSDL2.so" -o $LIBPATH/libSDL2.so
-fi
+rm -rf /tmp/sdl_build
+
+# Verify file size (must be > 1MB)
+echo "Checking compiled libSDL2.so size:"
+ls -lh $LIBPATH/libSDL2.so
 
 # Synchronize valid binary across all library folders
 cp -f $LIBPATH/libSDL2.so libs/arm/libSDL2.so 2>/dev/null || true
 cp -f $LIBPATH/libSDL2.so libs/armeabi/libSDL2.so 2>/dev/null || true
 cp -f $LIBPATH/libSDL2.so lib/armeabi-v7a/libSDL2.so 2>/dev/null || true
 cp -f $LIBPATH/libSDL2.so lib/arm/libSDL2.so 2>/dev/null || true
-
-echo "Checking final libSDL2.so size and ELF status:"
-ls -lh $LIBPATH/libSDL2.so
-file $LIBPATH/libSDL2.so
 
 generate_resources
 
