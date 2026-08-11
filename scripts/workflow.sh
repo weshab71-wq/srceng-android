@@ -117,10 +117,13 @@ build vinterface_wrapper/server libserver.so
 cd "$ROOT_DIR"
 rm -f "$LIBPATH/libSDL2.so"
 
-# 5. Robust SDL2 Source Compilation (GCC 4.9 Safe)
+# 5. Robust SDL2 Source Compilation (GCC 4.9 & API 19 Safe)
 echo "Building SDL2 natively using NDK..."
 rm -rf /tmp/sdl_src
 git clone --depth 1 -b release-2.0.22 https://github.com/libsdl-org/SDL.git /tmp/sdl_src
+
+# Disable OpenSLES driver to fix API 19 header struct incompatibilities
+sed -i 's/SDL_AUDIO_DRIVER_OPENSLES 1/SDL_AUDIO_DRIVER_OPENSLES 0/g' /tmp/sdl_src/include/SDL_config_android.h
 
 # Disable external cpufeatures import
 sed -i 's/$(call import-module,android\/cpufeatures)/# disabled cpufeatures import/g' /tmp/sdl_src/Android.mk
