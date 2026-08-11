@@ -71,14 +71,7 @@ cat << 'EOF' > Android.mk
 LOCAL_PATH := $(call my-dir)
 include $(CLEAR_VARS)
 LOCAL_MODULE := jpeg
-LOCAL_SRC_FILES := jcapimin.c jcapistd.c jccoefct.c jccolor.c jcdctmgr.c jchuff.c \
-                   jcinit.c jcmaster.c jcmarker.c jcpainit.c jcphuff.c jcparam.c \
-                   jprect.c jcsample.c jctrans.c jdapimin.c jdapistd.c jdatadst.c \
-                   jdatasrc.c jdcoefct.c jdcolor.c jddctmgr.c jdhuff.c jdinput.c \
-                   jdmainct.c jdmarker.c jdmaster.c jdmerge.c jdphuff.c jdsample.c \
-                   jdtrans.c jerror.c jfdctflt.c jfdctfst.c jfdctint.c idctflt.c \
-                   idctfst.c idctint.c jidctred.c jquant1.c jquant2.c jutils.c \
-                   jmemmgr.c jmemnobs.c
+LOCAL_SRC_FILES := $(notdir $(wildcard $(LOCAL_PATH)/*.c))
 include $(BUILD_STATIC_LIBRARY)
 EOF
 
