@@ -92,39 +92,62 @@ build gl4es libRegal.so
 build vinterface_wrapper/client libclient.so
 build vinterface_wrapper/server libserver.so
 
-# Force working directory back to project root
+# Return to root directory
 cd $ROOT_DIR
 
-# Clean out any old or corrupt files
+# Remove any existing pointer/corrupt file
 rm -f $LIBPATH/libSDL2.so
 
-# Fetch official SDL 2.28.5 precompiled Android development package
-echo "Fetching official prebuilt SDL2 Android binary..."
-curl -sL "https://github.com/libsdl-org/SDL/releases/download/release-2.28.5/SDL2-devel-2.28.5-android.tar.gz" -o /tmp/sdl2.tar.gz
+# Build ARM libSDL2.so directly from source using the Android NDK GCC compiler
+echo "Building 32-bit ARM libSDL2.so directly from source..."
+rm -rf /tmp/sdl_src
+git clone --depth 1 -b release-2.0.22 https://github.com/libsdl-org/SDL.git /tmp/sdl_src
 
-mkdir -p /tmp/sdl_extract
-tar -xzf /tmp/sdl_extract -C /tmp/sdl_extract 2>/dev/null || tar -xzf /tmp/sdl2.tar.gz -C /tmp/sdl_extract
+$NDK_HOME/toolchains/arm-linux-androideabi-4.9/prebuilt/linux-x86_64/bin/arm-linux-androideabi-gcc \
+    --sysroot=$NDK_HOME/platforms/android-19/arch-arm \
+    -march=armv7-a -mfloat-abi=softfp -mfpu=vfpv3-d16 \
+    -fPIC -shared -O2 \
+    -I/tmp/sdl_src/include \
+    -D__ANDROID__ \
+    /tmp/sdl_src/src/*.c \
+    /tmp/sdl_src/src/audio/*.c \
+    /tmp/sdl_src/src/audio/android/*.c \
+    /tmp/sdl_src/src/audio/dummy/*.c \
+    /tmp/sdl_src/src/core/android/*.c \
+    /tmp/sdl_src/src/cpuinfo/*.c \
+    /tmp/sdl_src/src/events/*.c \
+    /tmp/sdl_src/src/file/*.c \
+    /tmp/sdl_src/src/haptic/*.c \
+    /tmp/sdl_src/src/haptic/dummy/*.c \
+    /tmp/sdl_src/src/joystick/*.c \
+    /tmp/sdl_src/src/joystick/android/*.c \
+    /tmp/sdl_src/src/loadso/dlopen/*.c \
+    /tmp/sdl_src/src/power/*.c \
+    /tmp/sdl_src/src/power/android/*.c \
+    /tmp/sdl_src/src/render/*.c \
+    /tmp/sdl_src/src/render/opengles/*.c \
+    /tmp/sdl_src/src/render/opengles2/*.c \
+    /tmp/sdl_src/src/sensor/*.c \
+    /tmp/sdl_src/src/sensor/android/*.c \
+    /tmp/sdl_src/src/stdlib/*.c \
+    /tmp/sdl_src/src/thread/*.c \
+    /tmp/sdl_src/src/thread/pthread/*.c \
+    /tmp/sdl_src/src/timer/*.c \
+    /tmp/sdl_src/src/timer/unix/*.c \
+    /tmp/sdl_src/src/video/*.c \
+    /tmp/sdl_src/src/video/android/*.c \
+    -o $LIBPATH/libSDL2.so -lm -ldl -llog -landroid -lGLESv1_CM -lGLESv2
 
-# Locate and extract the compiled 32-bit armeabi-v7a libSDL2.so binary
-SDL_FOUND=$(find /tmp/sdl_extract -name "libSDL2.so" | grep "armeabi-v7a" | head -n 1)
+rm -rf /tmp/sdl_src
 
-if [ -n "$SDL_FOUND" ]; then
-    cp "$SDL_FOUND" $LIBPATH/libSDL2.so
-else
-    # Direct fallback compiled mirror
-    curl -sL "https://github.com/nillerusr/source-engine/raw/master/libs/armeabi-v7a/libSDL2.so" -o $LIBPATH/libSDL2.so
-fi
+# Sync valid compiled binary to all ABI targets
+cp -f $LIBPATH/libSDL2.so $ROOT_DIR/libs/arm/libSDL2.so
+cp -f $LIBPATH/libSDL2.so $ROOT_DIR/libs/armeabi/libSDL2.so
+cp -f $LIBPATH/libSDL2.so $ROOT_DIR/lib/armeabi-v7a/libSDL2.so
+cp -f $LIBPATH/libSDL2.so $ROOT_DIR/lib/arm/libSDL2.so
 
-rm -rf /tmp/sdl_extract /tmp/sdl2.tar.gz
-
-# Sync valid binary to all ABI target paths
-cp -f $LIBPATH/libSDL2.so $ROOT_DIR/libs/arm/libSDL2.so 2>/dev/null || true
-cp -f $LIBPATH/libSDL2.so $ROOT_DIR/libs/armeabi/libSDL2.so 2>/dev/null || true
-cp -f $LIBPATH/libSDL2.so $ROOT_DIR/lib/armeabi-v7a/libSDL2.so 2>/dev/null || true
-cp -f $LIBPATH/libSDL2.so $ROOT_DIR/lib/arm/libSDL2.so 2>/dev/null || true
-
-# Verify file size and ELF header
-echo "Verifying libSDL2.so in root libs path:"
+# Verify the output binary
+echo "Checking compiled libSDL2.so size and ELF magic header:"
 ls -lh $LIBPATH/libSDL2.so
 file $LIBPATH/libSDL2.so
 
