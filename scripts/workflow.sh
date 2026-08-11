@@ -63,9 +63,9 @@ fi
 
 # 4. Build Dependencies (libjpeg)
 echo "Building libjpeg..."
-rm -rf /tmp/libjpeg
-mkdir -p /tmp/libjpeg
-git clone --depth 1 https://github.com/libjpeg-turbo/libjpeg-turbo.git /tmp/libjpeg_src
+rm -rf /tmp/libjpeg_src
+mkdir -p /tmp/libjpeg_src
+git clone --depth 1 -b 2.0.6 https://github.com/libjpeg-turbo/libjpeg-turbo.git /tmp/libjpeg_src
 cd /tmp/libjpeg_src
 cat << 'EOF' > Android.mk
 LOCAL_PATH := $(call my-dir)
