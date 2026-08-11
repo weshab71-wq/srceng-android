@@ -67,11 +67,22 @@ rm -rf /tmp/libjpeg_src
 mkdir -p /tmp/libjpeg_src
 git clone --depth 1 -b 2.0.6 https://github.com/libjpeg-turbo/libjpeg-turbo.git /tmp/libjpeg_src
 cd /tmp/libjpeg_src
+
+# Copy template configuration header so jinclude.h finds jconfig.h
+cp jconfig.h.in jconfig.h
+
 cat << 'EOF' > Android.mk
 LOCAL_PATH := $(call my-dir)
 include $(CLEAR_VARS)
 LOCAL_MODULE := jpeg
-LOCAL_SRC_FILES := $(notdir $(wildcard $(LOCAL_PATH)/*.c))
+LOCAL_SRC_FILES := jcapimin.c jcapistd.c jccoefct.c jccolor.c jcdctmgr.c jchuff.c \
+                   jcinit.c jcmaster.c jcmarker.c jcphuff.c jcparam.c \
+                   jprect.c jcsample.c jctrans.c jdapimin.c jdapistd.c jdatadst.c \
+                   jdatasrc.c jdcoefct.c jdcolor.c jddctmgr.c jdhuff.c jdinput.c \
+                   jdmainct.c jdmarker.c jdmaster.c jdmerge.c jdphuff.c jdsample.c \
+                   jdtrans.c jerror.c jfdctflt.c jfdctfst.c jfdctint.c idctflt.c \
+                   idctfst.c idctint.c jidctred.c jquant1.c jquant2.c jutils.c \
+                   jmemmgr.c jmemnobs.c
 include $(BUILD_STATIC_LIBRARY)
 EOF
 
