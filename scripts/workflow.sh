@@ -143,11 +143,14 @@ sed -i 's/$(call import-module,android\/cpufeatures)/# disabled cpufeatures impo
 # Strip warning flags to prevent GCC 4.9 errors
 sed -i '/-W/d' /tmp/sdl_src/Android.mk
 
-# Forcefully undefine OpenSLES and AAudio drivers directly in SDL's Android config
+# Undefine drivers in SDL's internal header configuration
 sed -i 's/#define SDL_AUDIO_DRIVER_OPENSLES 1/#define SDL_AUDIO_DRIVER_OPENSLES 0/' /tmp/sdl_src/include/SDL_config_android.h
 sed -i 's/#define SDL_AUDIO_DRIVER_AAUDIO 1/#define SDL_AUDIO_DRIVER_AAUDIO 0/' /tmp/sdl_src/include/SDL_config_android.h
 
-# Modify the source C files to be completely empty to prevent ndk-build from attempting compilation
+# Ensure subdirectories exist before stubbing out C source files
+mkdir -p /tmp/sdl_src/src/audio/opensles
+mkdir -p /tmp/sdl_src/src/audio/aaudio
+
 echo "// OpenSLES disabled" > /tmp/sdl_src/src/audio/opensles/SDL_opensles.c
 echo "// AAudio disabled" > /tmp/sdl_src/src/audio/aaudio/SDL_aaudio.c
 
@@ -165,6 +168,7 @@ NDK_MODULE_PATH="$NDK_HOME/sources" "$NDK_HOME/ndk-build" \
     NDK_APPLICATION_MK=/tmp/sdl_src/Application.mk \
     NDK_TOOLCHAIN_VERSION=4.9 \
     -j$(nproc --all) || exit 1
+
 
 
 
