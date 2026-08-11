@@ -1,9 +1,10 @@
 #!/bin/bash
+set -e
 
-# Enable 32-bit architecture and install missing libraries for older Android SDK tools
+# 1. System Setup & Architecture Dependencies
 sudo dpkg --add-architecture i386
 sudo apt-get update -y
-sudo apt-get install -y zlib1g:i386 libstdc++6:i386 libc6:i386 wget curl unzip
+sudo apt-get install -y zlib1g:i386 libstdc++6:i386 libc6:i386 wget curl unzip git build-essential
 
 export GIT_TERMINAL_PROMPT=0
 export ROOT_DIR=$(pwd)
@@ -12,29 +13,42 @@ export PATH=$PATH:$NDK_HOME
 export LIBPATH=$ROOT_DIR/libs/armeabi-v7a 
 export NDK_TOOLCHAIN_VERSION=4.9
 
-# Ensure all target directories exist
-mkdir -p $LIBPATH
-mkdir -p $ROOT_DIR/libs/arm
-mkdir -p $ROOT_DIR/libs/armeabi
-mkdir -p $ROOT_DIR/lib/armeabi-v7a
-mkdir -p $ROOT_DIR/lib/arm
+# 2. Defensive Directory Scaffolding (Prevents missing path crashes)
+for dir in \
+    "$LIBPATH" \
+    "$ROOT_DIR/libs/arm" \
+    "$ROOT_DIR/libs/armeabi" \
+    "$ROOT_DIR/lib/armeabi-v7a" \
+    "$ROOT_DIR/lib/arm" \
+    "$ROOT_DIR/res/values" \
+    "$ROOT_DIR/jni/src/tierhook"
+do
+    mkdir -p "$dir"
+done
 
+# Standard build helper
 build()
 {
     PW=$(pwd)
-    cd $1 || exit 1
-    make NDK=1 NDK_PATH=$NDK_HOME APP_API_LEVEL=19 CFG=debug NDK_VERBOSE=1 -j$(nproc --all) || exit 1
-    cp $2 $LIBPATH && echo $2 Installed || exit 1
-    cd $PW
+    cd "$1" || { echo "Failed to navigate to $1"; exit 1; }
+    make NDK=1 NDK_PATH="$NDK_HOME" APP_API_LEVEL=19 CFG=debug NDK_VERBOSE=1 -j$(nproc --all) || exit 1
+    if [ -f "$2" ]; then
+        cp "$2" "$LIBPATH/" && echo "$2 Installed"
+    else
+        echo "Error: Output binary $2 not generated in $1"
+        exit 1
+    fi
+    cd "$PW"
 }
 
+# Resource Generator with String Escaping Guard
 RES=res/values/build_info.xml
 generate_resources()
 {
     SAFE_COMMIT=$(echo "${COMMIT:-unknown}" | sed 's/"/\\"/g')
     SAFE_BRANCH=$(echo "${DEPLOY_BRANCH:-main}" | sed 's/"/\\"/g')
 
-    cat << EOF > $RES
+    cat << EOF > "$RES"
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="last_commit">${SAFE_COMMIT}</string>
@@ -43,8 +57,7 @@ generate_resources()
 EOF
 }
 
-# Create a local valid tierhook module
-mkdir -p jni/src/tierhook
+# 3. Create Tierhook Module
 cat << 'EOF' > jni/src/tierhook/Makefile
 TARGET = libtierhook.so
 CFLAGS = -fPIC -shared -O2
@@ -60,8 +73,8 @@ EOF
 
 build jni/src/tierhook libtierhook.so
 
-# Enter srcsdk and set up dependencies
-cd srcsdk/
+# 4. Engine Core Dependencies & Glitch Checks
+cd "$ROOT_DIR/srcsdk" || exit 1
 rm -rf gl4es
 git clone --depth 1 https://github.com/nillerusr/gl4es.git gl4es || git clone --depth 1 https://github.com/ptitSeb/gl4es.git gl4es
 
@@ -71,7 +84,6 @@ TARGET = libRegal.so
 CC ?= gcc
 CFLAGS = -fPIC -shared -O2 -Iinclude
 
-# Exclude non-Android platform files (Amiga agl and desktop Linux glx)
 ALL_SRCS = $(wildcard src/*.c) $(wildcard src/*/*.c) $(wildcard src/*/*/*.c)
 SRCS = $(filter-out src/agl/% src/glx/%, $(ALL_SRCS))
 OBJS = $(SRCS:.c=.o)
@@ -86,21 +98,27 @@ clean:
 EOF
 fi
 
-# Build core engine components
 build main libmain.so
 build gl4es libRegal.so
 build vinterface_wrapper/client libclient.so
 build vinterface_wrapper/server libserver.so
 
-# Always return to root directory
-cd $ROOT_DIR
+cd "$ROOT_DIR"
+rm -f "$LIBPATH/libSDL2.so"
 
-# Clean up existing binary
-rm -f $LIBPATH/libSDL2.so
-
-echo "Building SDL2 natively using ndk-build..."
+# 5. Robust SDL2 Source Compilation
+echo "Building SDL2 natively using NDK..."
 rm -rf /tmp/sdl_src
 git clone --depth 1 -b release-2.0.22 https://github.com/libsdl-org/SDL.git /tmp/sdl_src
+
+# Sanity check NDK sources for cpufeatures module location
+if [ -d "$NDK_HOME/sources/android/cpufeatures" ]; then
+    MODULE_PATH="$NDK_HOME/sources"
+elif [ -d "$NDK_HOME/sources" ]; then
+    MODULE_PATH="$NDK_HOME/sources"
+else
+    MODULE_PATH="$NDK_HOME"
+fi
 
 cat << 'EOF' > /tmp/sdl_src/Application.mk
 APP_ABI := armeabi-v7a
@@ -108,39 +126,54 @@ APP_PLATFORM := android-19
 APP_STL := stlport_static
 EOF
 
-# Execute ndk-build targeting SDL's own Android.mk directly
+# Execute ndk-build with fallback flags and explicit module path definitions
+export NDK_MODULE_PATH="$MODULE_PATH"
+
 $NDK_HOME/ndk-build \
     NDK_PROJECT_PATH=/tmp/sdl_src \
     APP_BUILD_SCRIPT=/tmp/sdl_src/Android.mk \
     NDK_APPLICATION_MK=/tmp/sdl_src/Application.mk \
-    -j$(nproc --all)
+    NDK_MODULE_PATH="$MODULE_PATH" \
+    -j$(nproc --all) || exit 1
 
+# 6. Binary Validation and Multi-Target Replication
 if [ -f "/tmp/sdl_src/libs/armeabi-v7a/libSDL2.so" ]; then
-    cp "/tmp/sdl_src/libs/armeabi-v7a/libSDL2.so" $LIBPATH/libSDL2.so
+    cp "/tmp/sdl_src/libs/armeabi-v7a/libSDL2.so" "$LIBPATH/libSDL2.so"
+else
+    echo "ERROR: ndk-build completed but output binary is missing."
+    exit 1
 fi
 
 rm -rf /tmp/sdl_src
 
-# Verify binary output
 SIZE=$(wc -c < "$LIBPATH/libSDL2.so" 2>/dev/null || echo 0)
 echo "Verified libSDL2.so compiled size: $SIZE bytes."
 
 if [ "$SIZE" -lt 500000 ]; then
-    echo "ERROR: libSDL2.so compilation failed. Halting workflow."
+    echo "ERROR: libSDL2.so compilation generated an invalid or truncated binary ($SIZE bytes)."
     exit 1
 fi
 
-# Replicate libSDL2.so to all directory targets
-cp -f $LIBPATH/libSDL2.so $ROOT_DIR/libs/arm/libSDL2.so
-cp -f $LIBPATH/libSDL2.so $ROOT_DIR/libs/armeabi/libSDL2.so
-cp -f $LIBPATH/libSDL2.so $ROOT_DIR/libs/armeabi-v7a/libSDL2.so
-cp -f $LIBPATH/libSDL2.so $ROOT_DIR/lib/armeabi-v7a/libSDL2.so
-cp -f $LIBPATH/libSDL2.so $ROOT_DIR/lib/arm/libSDL2.so
+# Replicate to all required SDK output paths
+for target_dir in \
+    "$ROOT_DIR/libs/arm" \
+    "$ROOT_DIR/libs/armeabi" \
+    "$ROOT_DIR/libs/armeabi-v7a" \
+    "$ROOT_DIR/lib/armeabi-v7a" \
+    "$ROOT_DIR/lib/arm"
+do
+    cp -f "$LIBPATH/libSDL2.so" "$target_dir/libSDL2.so"
+done
 
+# 7. Final Package Assembly
 generate_resources
 
-mkdir -p $HOME/.android
-cp debug.keystore $HOME/.android
+mkdir -p "$HOME/.android"
+if [ -f "debug.keystore" ]; then
+    cp debug.keystore "$HOME/.android/"
+fi
+
 JAVA_HOME=/usr/lib/jvm/java-8-openjdk-amd64/ ANDROID_HOME=android-sdk/ ant debug || exit 1
 
-echo -n $COMMIT > version
+echo -n "${COMMIT:-unknown}" > version
+echo "Build completed successfully!"
