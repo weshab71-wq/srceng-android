@@ -105,7 +105,7 @@ cat << 'EOF' > jconfigint.h
 #endif
 EOF
 
-# Strict, explicit list of C files (no wildcard traps, templates, or missing SIMD/arithmetic deps)
+# Explicit C source list for libjpeg
 cat << 'EOF' > Android.mk
 LOCAL_PATH := $(call my-dir)
 include $(CLEAR_VARS)
@@ -147,11 +147,16 @@ sed -i 's/$(call import-module,android\/cpufeatures)/# disabled cpufeatures impo
 # Strip warning flags to prevent GCC 4.9 errors
 sed -i '/-W/d' /tmp/sdl_src/Android.mk
 
+# Disable AAudio in SDL_config_android.h for Android API 19 (Android 4.4) compatibility
+if [ -f "/tmp/sdl_src/include/SDL_config_android.h" ]; then
+    sed -i 's/#define SDL_AUDIO_DRIVER_AAUDIO 1/#define SDL_AUDIO_DRIVER_AAUDIO 0/g' /tmp/sdl_src/include/SDL_config_android.h
+fi
+
 cat << 'EOF' > /tmp/sdl_src/Application.mk
 APP_ABI := armeabi-v7a
 APP_PLATFORM := android-19
 APP_STL := stlport_static
-APP_CFLAGS := -w -Wno-error -DSDL_AUDIO_DRIVER_OPENSLES=0 -DSDL_AUDIO_DRIVER_AAUDIO=0 -DSL_ANDROID_PCM_REPRESENTATION_FLOAT=1
+APP_CFLAGS := -w -Wno-error -DSDL_AUDIO_DRIVER_AAUDIO=0
 EOF
 
 # Run ndk-build
