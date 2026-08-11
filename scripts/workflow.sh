@@ -11,10 +11,12 @@ export PATH=$PATH:$(pwd)/ndk-binaries
 export LIBPATH=$(pwd)/libs/armeabi-v7a 
 export NDK_TOOLCHAIN_VERSION=4.9
 
-# Ensure all lib folder variants exist
+# Create all possible native lib paths Ant or custom build tasks might use
 mkdir -p $LIBPATH
-mkdir -p $(pwd)/lib/armeabi-v7a
 mkdir -p $(pwd)/libs/arm
+mkdir -p $(pwd)/libs/armeabi
+mkdir -p $(pwd)/lib/armeabi-v7a
+mkdir -p $(pwd)/lib/arm
 
 build()
 {
@@ -28,7 +30,7 @@ build()
 RES=res/values/build_info.xml
 generate_resources()
 {
-    echo '<?xml version="1.0" encoding="utf-8"?>' > $RES
+    echo '<?xml version="1.0" utf-8"?>' > $RES
     echo '<resources>' >> $RES
     echo '<string name="last_commit" >'$COMMIT'</string>' >> $RES
     echo '<string name="deploy_branch" >'$DEPLOY_BRANCH'</string>' >> $RES
@@ -85,17 +87,18 @@ build vinterface_wrapper/client libclient.so
 build vinterface_wrapper/server libserver.so
 cd ../
 
-# Clean out any dummy/corrupted libSDL2.so files
+# Wipe fake/pointer files
 rm -f $LIBPATH/libSDL2.so
 
-echo "Fetching valid 32-bit libSDL2.so..."
-curl -L -s -o $LIBPATH/libSDL2.so "https://media.githubusercontent.com/media/nillerusr/source-engine/master/libs/armeabi-v7a/libSDL2.so" || \
+# Download real libSDL2.so binary directly via raw LFS endpoint
+echo "Fetching 32-bit libSDL2.so binary..."
+curl -L -s -o $LIBPATH/libSDL2.so "https://github.com/nillerusr/source-engine/raw/master/libs/armeabi-v7a/libSDL2.so" || \
 curl -L -s -o $LIBPATH/libSDL2.so "https://raw.githubusercontent.com/FWGS/sdl-android/master/libs/armeabi-v7a/libSDL2.so"
 
 FILESIZE=$(wc -c < "$LIBPATH/libSDL2.so" 2>/dev/null || echo 0)
 
 if [ "$FILESIZE" -lt 100000 ]; then
-    echo "Direct download failed. Building SDL2 from source..."
+    echo "LFS download failed, building SDL2 from source..."
     rm -f $LIBPATH/libSDL2.so
     git clone --depth 1 -b release-2.0.22 https://github.com/libsdl-org/SDL.git /tmp/sdl_src
     
@@ -108,14 +111,20 @@ if [ "$FILESIZE" -lt 100000 ]; then
     rm -rf /tmp/sdl_src
 fi
 
-# Sync compiled binaries into lib/ and libs/ directories so Ant packages them regardless of structure
-cp -r libs/* lib/ 2>/dev/null || true
-cp -r libs/armeabi-v7a/* libs/arm/ 2>/dev/null || true
-cp -r libs/armeabi-v7a/* lib/armeabi-v7a/ 2>/dev/null || true
+# Duplicate binaries across ALL standard ABI directory locations
+cp -f $LIBPATH/*.so libs/arm/ 2>/dev/null || true
+cp -f $LIBPATH/*.so libs/armeabi/ 2>/dev/null || true
+cp -f $LIBPATH/*.so lib/armeabi-v7a/ 2>/dev/null || true
+cp -f $LIBPATH/*.so lib/arm/ 2>/dev/null || true
 
-echo "Checking lib directories:"
-ls -lh lib/armeabi-v7a/
-ls -lh libs/armeabi-v7a/
+# If jniLibs is used by ant or custom tasks
+mkdir -p jniLibs/armeabi-v7a jniLibs/arm
+cp -f $LIBPATH/*.so jniLibs/armeabi-v7a/
+cp -f $LIBPATH/*.so jniLibs/arm/
+
+echo "--- Verifying lib locations ---"
+ls -lh libs/armeabi-v7a/libSDL2.so
+ls -lh libs/arm/libSDL2.so
 
 generate_resources
 
