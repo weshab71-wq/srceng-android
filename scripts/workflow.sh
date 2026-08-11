@@ -13,11 +13,12 @@ export PATH=$PATH:$NDK_HOME
 export LIBPATH=$ROOT_DIR/libs/armeabi-v7a 
 export NDK_TOOLCHAIN_VERSION=4.9
 
-# 2. Defensive Directory Scaffolding (Prevents missing path crashes)
+# 2. Directory Scaffolding
 for dir in \
     "$LIBPATH" \
     "$ROOT_DIR/libs/arm" \
     "$ROOT_DIR/libs/armeabi" \
+    "$ROOT_DIR/libs/armeabi-v7a" \
     "$ROOT_DIR/lib/armeabi-v7a" \
     "$ROOT_DIR/lib/arm" \
     "$ROOT_DIR/res/values" \
@@ -41,7 +42,7 @@ build()
     cd "$PW"
 }
 
-# Resource Generator with String Escaping Guard
+# Resource Generator
 RES=res/values/build_info.xml
 generate_resources()
 {
@@ -73,7 +74,7 @@ EOF
 
 build jni/src/tierhook libtierhook.so
 
-# 4. Engine Core Dependencies & Glitch Checks
+# 4. Engine Core Dependencies
 cd "$ROOT_DIR/srcsdk" || exit 1
 rm -rf gl4es
 git clone --depth 1 https://github.com/nillerusr/gl4es.git gl4es || git clone --depth 1 https://github.com/ptitSeb/gl4es.git gl4es
@@ -111,14 +112,8 @@ echo "Building SDL2 natively using NDK..."
 rm -rf /tmp/sdl_src
 git clone --depth 1 -b release-2.0.22 https://github.com/libsdl-org/SDL.git /tmp/sdl_src
 
-# Sanity check NDK sources for cpufeatures module location
-if [ -d "$NDK_HOME/sources/android/cpufeatures" ]; then
-    MODULE_PATH="$NDK_HOME/sources"
-elif [ -d "$NDK_HOME/sources" ]; then
-    MODULE_PATH="$NDK_HOME/sources"
-else
-    MODULE_PATH="$NDK_HOME"
-fi
+# Disable external import-module call in SDL's Android.mk that causes the crash
+sed -i 's/$(call import-module,android\/cpufeatures)/# disabled cpufeatures import/g' /tmp/sdl_src/Android.mk
 
 cat << 'EOF' > /tmp/sdl_src/Application.mk
 APP_ABI := armeabi-v7a
@@ -126,14 +121,11 @@ APP_PLATFORM := android-19
 APP_STL := stlport_static
 EOF
 
-# Execute ndk-build with fallback flags and explicit module path definitions
-export NDK_MODULE_PATH="$MODULE_PATH"
-
-$NDK_HOME/ndk-build \
+# Run ndk-build with inline module path assignment
+NDK_MODULE_PATH="$NDK_HOME/sources" $NDK_HOME/ndk-build \
     NDK_PROJECT_PATH=/tmp/sdl_src \
     APP_BUILD_SCRIPT=/tmp/sdl_src/Android.mk \
     NDK_APPLICATION_MK=/tmp/sdl_src/Application.mk \
-    NDK_MODULE_PATH="$MODULE_PATH" \
     -j$(nproc --all) || exit 1
 
 # 6. Binary Validation and Multi-Target Replication
