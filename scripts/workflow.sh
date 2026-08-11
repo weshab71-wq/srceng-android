@@ -11,7 +11,7 @@ export PATH=$PATH:$(pwd)/ndk-binaries
 export LIBPATH=$(pwd)/libs/armeabi-v7a 
 export NDK_TOOLCHAIN_VERSION=4.9
 
-# Create all possible native lib paths Ant or custom build tasks might use
+# Create all necessary native library target paths
 mkdir -p $LIBPATH
 mkdir -p $(pwd)/libs/arm
 mkdir -p $(pwd)/libs/armeabi
@@ -92,40 +92,32 @@ build vinterface_wrapper/client libclient.so
 build vinterface_wrapper/server libserver.so
 cd ../
 
-# Wipe fake/pointer files
+# Clean out invalid libSDL2 binaries
 rm -f $LIBPATH/libSDL2.so
 
-# Download real libSDL2.so binary directly via raw LFS endpoint
-echo "Fetching 32-bit libSDL2.so binary..."
-curl -L -s -o $LIBPATH/libSDL2.so "https://github.com/nillerusr/source-engine/raw/master/libs/armeabi-v7a/libSDL2.so" || \
-curl -L -s -o $LIBPATH/libSDL2.so "https://raw.githubusercontent.com/FWGS/sdl-android/master/libs/armeabi-v7a/libSDL2.so"
+# Clone official SDL repository and cross-compile clean ARM shared binary
+echo "Compiling native ARM libSDL2.so from source..."
+rm -rf /tmp/sdl_src
+git clone --depth 1 -b release-2.0.22 https://github.com/libsdl-org/SDL.git /tmp/sdl_src
 
-FILESIZE=$(wc -c < "$LIBPATH/libSDL2.so" 2>/dev/null || echo 0)
+# Explicit cross-compile with Android NDK GCC compiler target
+$NDK_HOME/toolchains/arm-linux-androideabi-4.9/prebuilt/linux-x86_64/bin/arm-linux-androideabi-gcc \
+    --sysroot=$NDK_HOME/platforms/android-19/arch-arm \
+    -march=armv7-a -mfloat-abi=softfp -mfpu=vfpv3-d16 \
+    -fPIC -shared -O2 \
+    -I/tmp/sdl_src/include \
+    $(find /tmp/sdl_src/src -name "*.c" ! -path "*/dummy/*" ! -path "*/win32/*" ! -path "*/cocoa/*" ! -path "*/wayland/*" ! -path "*/x11/*" ! -path "*/directfb/*" ! -path "*/kmsdrm/*" ! -path "*/psp/*" ! -path "*/vita/*" ! -path "*/n3ds/*") \
+    -o $LIBPATH/libSDL2.so -lm -ldl -llog -landroid
+rm -rf /tmp/sdl_src
 
-if [ "$FILESIZE" -lt 100000 ]; then
-    echo "LFS download failed, building SDL2 from source..."
-    rm -f $LIBPATH/libSDL2.so
-    git clone --depth 1 -b release-2.0.22 https://github.com/libsdl-org/SDL.git /tmp/sdl_src
-    
-    $NDK_HOME/toolchains/arm-linux-androideabi-4.9/prebuilt/linux-x86_64/bin/arm-linux-androideabi-gcc \
-        --sysroot=$NDK_HOME/platforms/android-19/arch-arm \
-        -fPIC -shared -O2 \
-        -I/tmp/sdl_src/include \
-        /tmp/sdl_src/src/*.c /tmp/sdl_src/src/*/*.c /tmp/sdl_src/src/*/*/*.c /tmp/sdl_src/src/*/*/*/*.c \
-        -o $LIBPATH/libSDL2.so -lm -ldl -llog -landroid
-    rm -rf /tmp/sdl_src
-fi
+# Verify ELF magic header (Must output ELF 32-bit LSB shared object, ARM)
+file $LIBPATH/libSDL2.so
 
-# Duplicate binaries across ALL standard ABI directory locations
-cp -f $LIBPATH/*.so libs/arm/ 2>/dev/null || true
-cp -f $LIBPATH/*.so libs/armeabi/ 2>/dev/null || true
-cp -f $LIBPATH/*.so lib/armeabi-v7a/ 2>/dev/null || true
-cp -f $LIBPATH/*.so lib/arm/ 2>/dev/null || true
-
-# If jniLibs is used by ant or custom tasks
-mkdir -p jniLibs/armeabi-v7a jniLibs/arm
-cp -f $LIBPATH/*.so jniLibs/armeabi-v7a/
-cp -f $LIBPATH/*.so jniLibs/arm/
+# Synchronize valid binary to all ABI locations
+cp -f $LIBPATH/libSDL2.so libs/arm/libSDL2.so
+cp -f $LIBPATH/libSDL2.so libs/armeabi/libSDL2.so
+cp -f $LIBPATH/libSDL2.so lib/armeabi-v7a/libSDL2.so
+cp -f $LIBPATH/libSDL2.so lib/arm/libSDL2.so
 
 generate_resources
 
