@@ -147,9 +147,13 @@ sed -i 's/$(call import-module,android\/cpufeatures)/# disabled cpufeatures impo
 # Strip warning flags to prevent GCC 4.9 errors
 sed -i '/-W/d' /tmp/sdl_src/Android.mk
 
-# Disable AAudio in SDL_config_android.h for Android API 19 (Android 4.4) compatibility
-if [ -f "/tmp/sdl_src/include/SDL_config_android.h" ]; then
-    sed -i 's/#define SDL_AUDIO_DRIVER_AAUDIO 1/#define SDL_AUDIO_DRIVER_AAUDIO 0/g' /tmp/sdl_src/include/SDL_config_android.h
+# Disable AAudio across all configuration headers
+find /tmp/sdl_src -name "SDL_config*.h" -exec sed -i 's/#define SDL_AUDIO_DRIVER_AAUDIO 1/#define SDL_AUDIO_DRIVER_AAUDIO 0/g' {} +
+
+# Neutralize AAudio source files directly so no AAudio headers are ever requested
+if [ -d "/tmp/sdl_src/src/audio/aaudio" ]; then
+    echo "// AAudio disabled for API 19" > /tmp/sdl_src/src/audio/aaudio/SDL_aaudio.c
+    echo "// AAudio disabled for API 19" > /tmp/sdl_src/src/audio/aaudio/SDL_aaudio.h
 fi
 
 cat << 'EOF' > /tmp/sdl_src/Application.mk
