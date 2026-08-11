@@ -61,36 +61,67 @@ if [ -f "$SYS_HEADER" ]; then
     sed -i 's/__attribute_const__//g' "$SYS_HEADER"
 fi
 
-# 4. Build Dependencies (libjpeg)
+# 4. Build Dependencies (libjpeg-turbo)
 echo "Building libjpeg..."
 rm -rf /tmp/libjpeg_src
 mkdir -p /tmp/libjpeg_src
 git clone --depth 1 -b 2.0.6 https://github.com/libjpeg-turbo/libjpeg-turbo.git /tmp/libjpeg_src
 cd /tmp/libjpeg_src
 
-# Full configuration header
+# Complete Public Configuration Header
 cat << 'EOF' > jconfig.h
+#ifndef JCONFIG_H
+#define JCONFIG_H
 #define JPEG_LIB_VERSION 62
 #define LIBJPEG_TURBO_VERSION "2.0.6"
+#define LIBJPEG_TURBO_VERSION_NUMBER 2000006
 #define HAVE_PROTOTYPES 1
 #define HAVE_UNSIGNED_CHAR 1
 #define HAVE_UNSIGNED_SHORT 1
 #define HAVE_STDDEF_H 1
 #define HAVE_STDLIB_H 1
-#define BITS_IN_JSAMPLE 8
 #define HAVE_LOCALE_H 1
+#define BITS_IN_JSAMPLE 8
+#define MEM_SRCDST_SUPPORTED 1
 #define INLINE __inline__
+#define NEED_SYS_TYPES_H 1
+#endif
 EOF
 
-# Exclude standalone utilities, internal extension files, and arithmetic coding modules
+# Complete Internal Configuration Header
+cat << 'EOF' > jconfigint.h
+#ifndef JCONFIGINT_H
+#define JCONFIGINT_H
+#define BUILD "20260811"
+#define PACKAGE_NAME "libjpeg-turbo"
+#define VERSION "2.0.6"
+#define SIZEOF_SIZE_T 4
+#define INLINE __inline__
+#define THREAD_LOCAL
+#define HAVE_BUILTIN_CTZ 1
+#define HAVE_MEMCPY 1
+#define HAVE_MEMSET 1
+#define RIGHT_SHIFT_IS_UNSIGNED 0
+#endif
+EOF
+
+# Strict, explicit list of C files (no wildcard traps, templates, or missing SIMD/arithmetic deps)
 cat << 'EOF' > Android.mk
 LOCAL_PATH := $(call my-dir)
 include $(CLEAR_VARS)
 LOCAL_MODULE := jpeg
-ALL_C := $(notdir $(wildcard $(LOCAL_PATH)/*.c))
-EXCLUDE_C := cjpeg.c djpeg.c jpegtran.c rdjpgcom.c wrjpgcom.c tjbench.c tjexample.c jccolext.c jdcolext.c jdmrgext.c jcarith.c jdarith.c jaricom.c
-LOCAL_SRC_FILES := $(filter-out $(EXCLUDE_C), $(ALL_C))
-LOCAL_CFLAGS := -DJPEG_LIB_VERSION=62 -DINLINE=__inline__
+
+LOCAL_SRC_FILES := \
+    jcapimin.c jcapistd.c jccoefct.c jccolor.c jcdctmgr.c jchuff.c \
+    jcinit.c jcmainct.c jcmarker.c jcmaster.c jcomapi.c jcparam.c \
+    jcphuff.c jcsample.c jctrans.c jdapimin.c jdapistd.c jdatadst.c \
+    jdatasrc.c jdcoefct.c jdcolor.c jddctmgr.c jdhuff.c jdmainct.c \
+    jdmarker.c jdmaster.c jdmerge.c jdpostct.c jdsample.c jdtrans.c \
+    jerror.c jfdctflt.c jfdctfst.c jfdctint.c jidctflt.c jidctfst.c \
+    jidctint.c jidctred.c jmemmgr.c jmemnobs.c jquant1.c jquant2.c \
+    jutils.c jsimd_none.c
+
+LOCAL_CFLAGS := -w -O3 -DJPEG_LIB_VERSION=62 -DINLINE=__inline__ -DNO_GETENV
 include $(BUILD_STATIC_LIBRARY)
 EOF
 
