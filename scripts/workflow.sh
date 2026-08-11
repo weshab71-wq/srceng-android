@@ -102,19 +102,18 @@ echo "Building SDL2 natively using ndk-build..."
 rm -rf /tmp/sdl_src
 git clone --depth 1 -b release-2.0.22 https://github.com/libsdl-org/SDL.git /tmp/sdl_src
 
-# Create Application.mk to enforce 32-bit ARM build target
-cat << 'EOF' > /tmp/sdl_src/Android.mk
-include $(call all-subdir-makefiles)
-EOF
-
 cat << 'EOF' > /tmp/sdl_src/Application.mk
 APP_ABI := armeabi-v7a
 APP_PLATFORM := android-19
 APP_STL := stlport_static
 EOF
 
-# Execute ndk-build inside SDL directory
-(cd /tmp/sdl_src && $NDK_HOME/ndk-build NDK_PROJECT_PATH=. NDK_APPLICATION_MK=Application.mk -j$(nproc --all))
+# Execute ndk-build targeting SDL's own Android.mk directly
+$NDK_HOME/ndk-build \
+    NDK_PROJECT_PATH=/tmp/sdl_src \
+    APP_BUILD_SCRIPT=/tmp/sdl_src/Android.mk \
+    NDK_APPLICATION_MK=/tmp/sdl_src/Application.mk \
+    -j$(nproc --all)
 
 if [ -f "/tmp/sdl_src/libs/armeabi-v7a/libSDL2.so" ]; then
     cp "/tmp/sdl_src/libs/armeabi-v7a/libSDL2.so" $LIBPATH/libSDL2.so
