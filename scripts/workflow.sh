@@ -154,11 +154,16 @@ find /tmp/sdl_src -name "SDL_config*.h" -exec sed -i 's/#define SDL_AUDIO_DRIVER
 # Case-insensitively replace all AAudio and OpenSL ES source/header files with empty stubs
 find /tmp/sdl_src/src/audio -type f \( -iname "*opensl*" -o -iname "*aaudio*" \) -exec sh -c 'echo "// Disabled for API 19" > "$1"' _ {} \;
 
+# Patch SDL_egl.h to explicitly include system EGL headers before EGLSurface macros expand
+if [ -f "/tmp/sdl_src/include/SDL_egl.h" ]; then
+    sed -i '1s/^/#include <EGL\/egl.h>\n#include <EGL\/eglplatform.h>\n/' /tmp/sdl_src/include/SDL_egl.h
+fi
+
 cat << 'EOF' > /tmp/sdl_src/Application.mk
 APP_ABI := armeabi-v7a
 APP_PLATFORM := android-19
 APP_STL := stlport_static
-APP_CFLAGS := -w -Wno-error -DSDL_AUDIO_DRIVER_AAUDIO=0 -DSDL_AUDIO_DRIVER_OPENSLES=0
+APP_CFLAGS := -w -Wno-error -DSDL_AUDIO_DRIVER_AAUDIO=0 -DSDL_AUDIO_DRIVER_OPENSLES=0 -include EGL/egl.h
 EOF
 
 # Run ndk-build
