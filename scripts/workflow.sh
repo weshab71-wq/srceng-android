@@ -12,7 +12,7 @@ export PATH=$PATH:$NDK_HOME
 export LIBPATH=$ROOT_DIR/libs/armeabi-v7a 
 export NDK_TOOLCHAIN_VERSION=4.9
 
-# Ensure all binary target folders exist under libs/
+# Ensure all target directories exist
 mkdir -p $LIBPATH
 mkdir -p $ROOT_DIR/libs/arm
 mkdir -p $ROOT_DIR/libs/armeabi
@@ -35,7 +35,7 @@ generate_resources()
     SAFE_BRANCH=$(echo "${DEPLOY_BRANCH:-main}" | sed 's/"/\\"/g')
 
     cat << EOF > $RES
-<?xml version="1.0" utf-8"?>
+<?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="last_commit">${SAFE_COMMIT}</string>
     <string name="deploy_branch">${SAFE_BRANCH}</string>
@@ -92,64 +92,46 @@ build gl4es libRegal.so
 build vinterface_wrapper/client libclient.so
 build vinterface_wrapper/server libserver.so
 
-# Return to project root directory
+# Always return to root directory
 cd $ROOT_DIR
 
-# Clean out old/corrupt files
+# Clean up existing binary
 rm -f $LIBPATH/libSDL2.so
 
-echo "Building 32-bit ARM libSDL2.so directly from source..."
+echo "Building SDL2 natively using ndk-build..."
 rm -rf /tmp/sdl_src
 git clone --depth 1 -b release-2.0.22 https://github.com/libsdl-org/SDL.git /tmp/sdl_src
 
-# Compile minimal, functional libSDL2.so for armeabi-v7a using NDK toolchain
-$NDK_HOME/toolchains/arm-linux-androideabi-4.9/prebuilt/linux-x86_64/bin/arm-linux-androideabi-gcc \
-    --sysroot=$NDK_HOME/platforms/android-19/arch-arm \
-    -march=armv7-a -mfloat-abi=softfp -mfpu=vfpv3-d16 \
-    -fPIC -shared -O2 \
-    -I/tmp/sdl_src/include \
-    -D__ANDROID__ \
-    /tmp/sdl_src/src/*.c \
-    /tmp/sdl_src/src/audio/*.c \
-    /tmp/sdl_src/src/audio/android/*.c \
-    /tmp/sdl_src/src/audio/dummy/*.c \
-    /tmp/sdl_src/src/core/android/*.c \
-    /tmp/sdl_src/src/cpuinfo/*.c \
-    /tmp/sdl_src/src/events/*.c \
-    /tmp/sdl_src/src/file/*.c \
-    /tmp/sdl_src/src/haptic/*.c \
-    /tmp/sdl_src/src/haptic/dummy/*.c \
-    /tmp/sdl_src/src/joystick/*.c \
-    /tmp/sdl_src/src/joystick/android/*.c \
-    /tmp/sdl_src/src/loadso/dlopen/*.c \
-    /tmp/sdl_src/src/power/*.c \
-    /tmp/sdl_src/src/power/android/*.c \
-    /tmp/sdl_src/src/render/*.c \
-    /tmp/sdl_src/src/render/opengles/*.c \
-    /tmp/sdl_src/src/render/opengles2/*.c \
-    /tmp/sdl_src/src/sensor/*.c \
-    /tmp/sdl_src/src/sensor/android/*.c \
-    /tmp/sdl_src/src/stdlib/*.c \
-    /tmp/sdl_src/src/thread/*.c \
-    /tmp/sdl_src/src/thread/pthread/*.c \
-    /tmp/sdl_src/src/timer/*.c \
-    /tmp/sdl_src/src/timer/unix/*.c \
-    /tmp/sdl_src/src/video/*.c \
-    /tmp/sdl_src/src/video/android/*.c \
-    -o $LIBPATH/libSDL2.so -lm -ldl -llog -landroid -lGLESv1_CM -lGLESv2
+# Create Application.mk to enforce 32-bit ARM build target
+cat << 'EOF' > /tmp/sdl_src/Android.mk
+include $(call all-subdir-makefiles)
+EOF
+
+cat << 'EOF' > /tmp/sdl_src/Application.mk
+APP_ABI := armeabi-v7a
+APP_PLATFORM := android-19
+APP_STL := stlport_static
+EOF
+
+# Execute ndk-build inside SDL directory
+(cd /tmp/sdl_src && $NDK_HOME/ndk-build NDK_PROJECT_PATH=. NDK_APPLICATION_MK=Application.mk -j$(nproc --all))
+
+if [ -f "/tmp/sdl_src/libs/armeabi-v7a/libSDL2.so" ]; then
+    cp "/tmp/sdl_src/libs/armeabi-v7a/libSDL2.so" $LIBPATH/libSDL2.so
+fi
 
 rm -rf /tmp/sdl_src
 
-# Check file size
+# Verify binary output
 SIZE=$(wc -c < "$LIBPATH/libSDL2.so" 2>/dev/null || echo 0)
 echo "Verified libSDL2.so compiled size: $SIZE bytes."
 
 if [ "$SIZE" -lt 500000 ]; then
-    echo "ERROR: Compilation of libSDL2.so failed. Halting workflow."
+    echo "ERROR: libSDL2.so compilation failed. Halting workflow."
     exit 1
 fi
 
-# Replicate libSDL2.so across all directories Ant scans for APK bundling
+# Replicate libSDL2.so to all directory targets
 cp -f $LIBPATH/libSDL2.so $ROOT_DIR/libs/arm/libSDL2.so
 cp -f $LIBPATH/libSDL2.so $ROOT_DIR/libs/armeabi/libSDL2.so
 cp -f $LIBPATH/libSDL2.so $ROOT_DIR/libs/armeabi-v7a/libSDL2.so
