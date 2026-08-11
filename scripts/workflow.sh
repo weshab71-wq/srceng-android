@@ -154,16 +154,16 @@ find /tmp/sdl_src -name "SDL_config*.h" -exec sed -i 's/#define SDL_AUDIO_DRIVER
 # Case-insensitively replace all AAudio and OpenSL ES source/header files with empty stubs
 find /tmp/sdl_src/src/audio -type f \( -iname "*opensl*" -o -iname "*aaudio*" \) -exec sh -c 'echo "// Disabled for API 19" > "$1"' _ {} \;
 
-# Patch SDL_egl.h with missing EGL 1.5 typedefs (EGLAttrib) and system EGL headers
+# Patch SDL_egl.h with missing EGL 1.5 types (EGLImage, EGLSync, EGLStreamKHR, EGLAttrib)
 if [ -f "/tmp/sdl_src/include/SDL_egl.h" ]; then
-    sed -i '1s/^/#include <stdint.h>\ntypedef intptr_t EGLAttrib;\ntypedef intptr_t EGLAttribKHR;\n#include <EGL\/egl.h>\n#include <EGL\/eglplatform.h>\n/' /tmp/sdl_src/include/SDL_egl.h
+    sed -i '1s/^/#include <stdint.h>\n#include <EGL\/egl.h>\n#include <EGL\/eglplatform.h>\ntypedef void *EGLImage;\ntypedef void *EGLSync;\ntypedef void *EGLStreamKHR;\ntypedef intptr_t EGLAttrib;\ntypedef intptr_t EGLAttribKHR;\n/' /tmp/sdl_src/include/SDL_egl.h
 fi
 
 cat << 'EOF' > /tmp/sdl_src/Application.mk
 APP_ABI := armeabi-v7a
 APP_PLATFORM := android-19
 APP_STL := stlport_static
-APP_CFLAGS := -w -Wno-error -DSDL_AUDIO_DRIVER_AAUDIO=0 -DSDL_AUDIO_DRIVER_OPENSLES=0 -include EGL/egl.h -DEGLAttrib=intptr_t -DEGLAttribKHR=intptr_t
+APP_CFLAGS := -w -Wno-error -DSDL_AUDIO_DRIVER_AAUDIO=0 -DSDL_AUDIO_DRIVER_OPENSLES=0
 EOF
 
 # Run ndk-build
