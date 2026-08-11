@@ -9,7 +9,6 @@ sudo apt-get install -y zlib1g:i386 libstdc++6:i386 libc6:i386 wget curl unzip g
 export GIT_TERMINAL_PROMPT=0
 export ROOT_DIR=$(pwd)
 
-# Ensure NDK_HOME points to valid directory
 if [ -z "$NDK_HOME" ]; then
     export NDK_HOME=$ROOT_DIR/ndk-binaries
 fi
@@ -32,13 +31,11 @@ do
     mkdir -p "$dir"
 done
 
-# Standard build helper
 build()
 {
     PW=$(pwd)
     cd "$1" || { echo "Failed to navigate to $1"; exit 1; }
     
-    # Check if ndk-build executable exists before running
     if [ ! -f "$NDK_HOME/ndk-build" ]; then
         echo "Error: $NDK_HOME/ndk-build does not exist."
         exit 1
@@ -55,7 +52,6 @@ build()
     cd "$PW"
 }
 
-# Resource Generator
 RES=res/values/build_info.xml
 generate_resources()
 {
@@ -120,13 +116,17 @@ build vinterface_wrapper/server libserver.so
 cd "$ROOT_DIR"
 rm -f "$LIBPATH/libSDL2.so"
 
-# 5. Robust SDL2 Source Compilation
+# 5. Robust SDL2 Source Compilation (GCC 4.9 Safe)
 echo "Building SDL2 natively using NDK..."
 rm -rf /tmp/sdl_src
 git clone --depth 1 -b release-2.0.22 https://github.com/libsdl-org/SDL.git /tmp/sdl_src
 
-# Disable external import-module call in SDL's Android.mk
+# Disable cpufeatures import
 sed -i 's/$(call import-module,android\/cpufeatures)/# disabled cpufeatures import/g' /tmp/sdl_src/Android.mk
+
+# Clear out any Clang-specific warning flags or strict CFLAGS from SDL's Android.mk
+sed -i '/LOCAL_CFLAGS += -W/d' /tmp/sdl_src/Android.mk
+sed -i '/LOCAL_CFLAGS += -f/d' /tmp/sdl_src/Android.mk
 
 cat << 'EOF' > /tmp/sdl_src/Application.mk
 APP_ABI := armeabi-v7a
@@ -134,12 +134,12 @@ APP_PLATFORM := android-19
 APP_STL := stlport_static
 EOF
 
-# Execute ndk-build using Clang toolchain specifically for SDL2
+# Run ndk-build using default GCC toolchain
 NDK_MODULE_PATH="$NDK_HOME/sources" "$NDK_HOME/ndk-build" \
     NDK_PROJECT_PATH=/tmp/sdl_src \
     APP_BUILD_SCRIPT=/tmp/sdl_src/Android.mk \
     NDK_APPLICATION_MK=/tmp/sdl_src/Application.mk \
-    NDK_TOOLCHAIN_VERSION=clang \
+    NDK_TOOLCHAIN_VERSION=4.9 \
     -j$(nproc --all) || exit 1
 
 # 6. Binary Validation and Multi-Target Replication
