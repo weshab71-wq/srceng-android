@@ -12,7 +12,7 @@ export PATH=$PATH:$NDK_HOME
 export LIBPATH=$ROOT_DIR/libs/armeabi-v7a 
 export NDK_TOOLCHAIN_VERSION=4.9
 
-# Ensure root lib target directories exist
+# Ensure all legacy Ant binary target folders exist under libs/
 mkdir -p $LIBPATH
 mkdir -p $ROOT_DIR/libs/arm
 mkdir -p $ROOT_DIR/libs/armeabi
@@ -92,64 +92,41 @@ build gl4es libRegal.so
 build vinterface_wrapper/client libclient.so
 build vinterface_wrapper/server libserver.so
 
-# Return to root directory
+# Force working directory back to root
 cd $ROOT_DIR
 
-# Remove any existing pointer/corrupt file
+# Clean out any zero-byte or corrupt pointer files
 rm -f $LIBPATH/libSDL2.so
 
-# Build ARM libSDL2.so directly from source using the Android NDK GCC compiler
-echo "Building 32-bit ARM libSDL2.so directly from source..."
-rm -rf /tmp/sdl_src
-git clone --depth 1 -b release-2.0.22 https://github.com/libsdl-org/SDL.git /tmp/sdl_src
+echo "Downloading official precompiled SDL2 AAR package..."
+curl -sL "https://github.com/libsdl-org/SDL/releases/download/release-2.28.5/SDL2-2.28.5.aar" -o /tmp/sdl2.aar
 
-$NDK_HOME/toolchains/arm-linux-androideabi-4.9/prebuilt/linux-x86_64/bin/arm-linux-androideabi-gcc \
-    --sysroot=$NDK_HOME/platforms/android-19/arch-arm \
-    -march=armv7-a -mfloat-abi=softfp -mfpu=vfpv3-d16 \
-    -fPIC -shared -O2 \
-    -I/tmp/sdl_src/include \
-    -D__ANDROID__ \
-    /tmp/sdl_src/src/*.c \
-    /tmp/sdl_src/src/audio/*.c \
-    /tmp/sdl_src/src/audio/android/*.c \
-    /tmp/sdl_src/src/audio/dummy/*.c \
-    /tmp/sdl_src/src/core/android/*.c \
-    /tmp/sdl_src/src/cpuinfo/*.c \
-    /tmp/sdl_src/src/events/*.c \
-    /tmp/sdl_src/src/file/*.c \
-    /tmp/sdl_src/src/haptic/*.c \
-    /tmp/sdl_src/src/haptic/dummy/*.c \
-    /tmp/sdl_src/src/joystick/*.c \
-    /tmp/sdl_src/src/joystick/android/*.c \
-    /tmp/sdl_src/src/loadso/dlopen/*.c \
-    /tmp/sdl_src/src/power/*.c \
-    /tmp/sdl_src/src/power/android/*.c \
-    /tmp/sdl_src/src/render/*.c \
-    /tmp/sdl_src/src/render/opengles/*.c \
-    /tmp/sdl_src/src/render/opengles2/*.c \
-    /tmp/sdl_src/src/sensor/*.c \
-    /tmp/sdl_src/src/sensor/android/*.c \
-    /tmp/sdl_src/src/stdlib/*.c \
-    /tmp/sdl_src/src/thread/*.c \
-    /tmp/sdl_src/src/thread/pthread/*.c \
-    /tmp/sdl_src/src/timer/*.c \
-    /tmp/sdl_src/src/timer/unix/*.c \
-    /tmp/sdl_src/src/video/*.c \
-    /tmp/sdl_src/src/video/android/*.c \
-    -o $LIBPATH/libSDL2.so -lm -ldl -llog -landroid -lGLESv1_CM -lGLESv2
+# Extract native compiled binary from AAR
+unzip -p /tmp/sdl2.aar "jni/armeabi-v7a/libSDL2.so" > $LIBPATH/libSDL2.so
+rm -f /tmp/sdl2.aar
 
-rm -rf /tmp/sdl_src
+# Check binary validity
+SIZE=$(wc -c < "$LIBPATH/libSDL2.so" 2>/dev/null || echo 0)
+if [ "$SIZE" -lt 500000 ]; then
+    echo "Primary SDL download failed or too small ($SIZE bytes), fetching fallback mirror..."
+    curl -sL "https://raw.githubusercontent.com/nillerusr/source-engine/master/libs/armeabi-v7a/libSDL2.so" -o $LIBPATH/libSDL2.so
+fi
 
-# Sync valid compiled binary to all ABI targets
+# Re-verify size
+SIZE=$(wc -c < "$LIBPATH/libSDL2.so" 2>/dev/null || echo 0)
+echo "Verified libSDL2.so size: $SIZE bytes."
+
+if [ "$SIZE" -lt 500000 ]; then
+    echo "ERROR: libSDL2.so binary build step failed. Halting workflow."
+    exit 1
+fi
+
+# Replicate libSDL2.so to ALL folders Ant searches during APK bundle creation
 cp -f $LIBPATH/libSDL2.so $ROOT_DIR/libs/arm/libSDL2.so
 cp -f $LIBPATH/libSDL2.so $ROOT_DIR/libs/armeabi/libSDL2.so
+cp -f $LIBPATH/libSDL2.so $ROOT_DIR/libs/armeabi-v7a/libSDL2.so
 cp -f $LIBPATH/libSDL2.so $ROOT_DIR/lib/armeabi-v7a/libSDL2.so
 cp -f $LIBPATH/libSDL2.so $ROOT_DIR/lib/arm/libSDL2.so
-
-# Verify the output binary
-echo "Checking compiled libSDL2.so size and ELF magic header:"
-ls -lh $LIBPATH/libSDL2.so
-file $LIBPATH/libSDL2.so
 
 generate_resources
 
