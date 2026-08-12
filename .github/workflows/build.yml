@@ -10,8 +10,10 @@ jobs:
 
       - name: Build
         run: |
+          # Enable 32-bit architecture for legacy Android SDK build tools (aapt)
+          sudo dpkg --add-architecture i386
           sudo apt-get update
-          sudo apt-get install -y make openjdk-8-jdk openjdk-8-jre ant ant-contrib python3-requests python3-pip zip
+          sudo apt-get install -y make openjdk-8-jdk openjdk-8-jre ant ant-contrib python3-requests python3-pip zip lib32z1 lib32stdc++6 zlib1g:i386
           sudo pip3 install websocket-client
 
           # Clone dependencies directly to bypass broken submodule links
