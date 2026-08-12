@@ -153,10 +153,9 @@ echo 'LOCAL_SRC_FILES += src/cpuinfo/cpu-features.c' >> /tmp/sdl_src/Android.mk
 # Strip warning flags to prevent GCC 4.9 stop-on-warning errors
 sed -i '/-W/d' /tmp/sdl_src/Android.mk
 
-# Enable Android JNI Audio & Disable problematic drivers across config headers
-find /tmp/sdl_src -name "SDL_config*.h" -exec sed -i 's/#define SDL_AUDIO_DRIVER_OPENSLES 1/#define SDL_AUDIO_DRIVER_OPENSLES 0/g' {} +
-find /tmp/sdl_src -name "SDL_config*.h" -exec sed -i 's/#define SDL_AUDIO_DRIVER_AAUDIO 1/#define SDL_AUDIO_DRIVER_AAUDIO 0/g' {} +
-find /tmp/sdl_src -name "SDL_config*.h" -exec sed -i 's/#define SDL_AUDIO_DRIVER_ANDROID 0/#define SDL_AUDIO_DRIVER_ANDROID 1/g' {} +
+# Ensure drivers are enabled in configuration headers so symbols match calls
+find /tmp/sdl_src -name "SDL_config*.h" -exec sed -i 's/#define SDL_AUDIO_DRIVER_OPENSLES 0/#define SDL_AUDIO_DRIVER_OPENSLES 1/g' {} +
+find /tmp/sdl_src -name "SDL_config*.h" -exec sed -i 's/#define SDL_AUDIO_DRIVER_AAUDIO 0/#define SDL_AUDIO_DRIVER_AAUDIO 1/g' {} +
 find /tmp/sdl_src -name "SDL_config*.h" -exec sed -i 's/#define SDL_JOYSTICK_HIDAPI 1/#define SDL_JOYSTICK_HIDAPI 0/g' {} +
 
 # Clean case-insensitive loop to stub OpenSL ES files
@@ -212,6 +211,10 @@ EOF
     fi
 done
 
+# Explicitly force-add the stubbed driver files into Android.mk build list
+echo 'LOCAL_SRC_FILES += src/audio/opensLES/SDL_opensLES.c' >> /tmp/sdl_src/Android.mk
+echo 'LOCAL_SRC_FILES += src/audio/aaudio/SDL_aaudio.c' >> /tmp/sdl_src/Android.mk
+
 # Stub out hid.cpp to bypass GCC 4.9 template parsing bug in hidapi
 if [ -f "/tmp/sdl_src/src/hidapi/android/hid.cpp" ]; then
     cat << 'EOF' > /tmp/sdl_src/src/hidapi/android/hid.cpp
@@ -256,7 +259,7 @@ cat << 'EOF' > /tmp/sdl_src/Application.mk
 APP_ABI := armeabi-v7a
 APP_PLATFORM := android-19
 APP_STL := stlport_static
-APP_CFLAGS := -w -Wno-error -DSDL_HIDAPI_DISABLED=1 -DSDL_AUDIO_DRIVER_OPENSLES=0 -DSDL_AUDIO_DRIVER_AAUDIO=0
+APP_CFLAGS := -w -Wno-error -DSDL_HIDAPI_DISABLED=1 -DSDL_AUDIO_DRIVER_OPENSLES=1 -DSDL_AUDIO_DRIVER_AAUDIO=1
 EOF
 
 # Build SDL2
