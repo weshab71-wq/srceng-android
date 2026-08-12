@@ -153,70 +153,37 @@ echo 'LOCAL_SRC_FILES += src/cpuinfo/cpu-features.c' >> /tmp/sdl_src/Android.mk
 # Strip warning flags to prevent GCC 4.9 stop-on-warning errors
 sed -i '/-W/d' /tmp/sdl_src/Android.mk
 
-# Keep driver flags enabled so Android.mk compiles our stub files
-find /tmp/sdl_src -name "SDL_config*.h" -exec sed -i 's/#define SDL_AUDIO_DRIVER_OPENSLES 0/#define SDL_AUDIO_DRIVER_OPENSLES 1/g' {} +
-find /tmp/sdl_src -name "SDL_config*.h" -exec sed -i 's/#define SDL_AUDIO_DRIVER_AAUDIO 0/#define SDL_AUDIO_DRIVER_AAUDIO 1/g' {} +
-find /tmp/sdl_src -name "SDL_config*.h" -exec sed -i 's/#define SDL_JOYSTICK_HIDAPI 1/#define SDL_JOYSTICK_HIDAPI 0/g' {} +
+# Blank out existing native OpenSL ES and AAudio driver files
+find /tmp/sdl_src/src/audio -type f \( -iname "*opensles*.c" -o -iname "*aaudio*.c" \) -exec sh -c 'echo "" > "$1"' _ {} \;
 
-# Unconditionally replace ALL OpenSL ES headers and C files with stubs
-find /tmp/sdl_src/src/audio -type f -iname "*opensles*.h" | while read -r f; do
-cat << 'EOF' > "$f"
-#ifndef SDL_opensles_h_
-#define SDL_opensles_h_
-#include "../SDL_sysaudio.h"
-void opensLES_PauseDevices(void);
-void opensLES_ResumeDevices(void);
-#endif
-EOF
-done
+# Create a dedicated, unconditional stub C file for audio driver symbols
+cat << 'EOF' > /tmp/sdl_src/src/audio/sdl_audio_stubs.c
+#include "../SDL_internal.h"
+#include "SDL_sysaudio.h"
 
-find /tmp/sdl_src/src/audio -type f -iname "*opensles*.c" | while read -r f; do
-cat << 'EOF' > "$f"
-#include "../../SDL_internal.h"
-#include "SDL_audio.h"
-#include "../SDL_sysaudio.h"
-
-static int OPENSLES_Init(SDL_AudioDriverImpl *impl) { (void)impl; return 0; }
+static int STUB_AudioInit(SDL_AudioDriverImpl *impl) {
+    (void)impl;
+    return 0;
+}
 
 AudioBootStrap opensLES_bootstrap = {
-    "opensles", "OpenSL ES Dummy", OPENSLES_Init, 0
+    "opensles", "OpenSL ES Dummy", STUB_AudioInit, 0
 };
 
 void opensLES_PauseDevices(void) {}
 void opensLES_ResumeDevices(void) {}
-EOF
-done
-
-# Unconditionally replace ALL AAudio headers and C files with stubs
-find /tmp/sdl_src/src/audio -type f -iname "*aaudio*.h" | while read -r f; do
-cat << 'EOF' > "$f"
-#ifndef SDL_aaudio_h_
-#define SDL_aaudio_h_
-#include "../SDL_sysaudio.h"
-void aaudio_PauseDevices(void);
-void aaudio_ResumeDevices(void);
-void aaudio_DetectBrokenPlayState(void);
-#endif
-EOF
-done
-
-find /tmp/sdl_src/src/audio -type f -iname "*aaudio*.c" | while read -r f; do
-cat << 'EOF' > "$f"
-#include "../../SDL_internal.h"
-#include "SDL_audio.h"
-#include "../SDL_sysaudio.h"
-
-static int AAUDIO_Init(SDL_AudioDriverImpl *impl) { (void)impl; return 0; }
 
 AudioBootStrap aaudio_bootstrap = {
-    "aaudio", "AAudio Dummy", AAUDIO_Init, 0
+    "aaudio", "AAudio Dummy", STUB_AudioInit, 0
 };
 
 void aaudio_PauseDevices(void) {}
 void aaudio_ResumeDevices(void) {}
 void aaudio_DetectBrokenPlayState(void) {}
 EOF
-done
+
+# Unconditionally add stub implementation into SDL2 Android.mk
+echo 'LOCAL_SRC_FILES += src/audio/sdl_audio_stubs.c' >> /tmp/sdl_src/Android.mk
 
 # Stub out hid.cpp to bypass GCC 4.9 template parsing bug in hidapi
 if [ -f "/tmp/sdl_src/src/hidapi/android/hid.cpp" ]; then
