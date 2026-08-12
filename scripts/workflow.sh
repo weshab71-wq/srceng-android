@@ -157,28 +157,38 @@ find /tmp/sdl_src -name "SDL_config*.h" -exec sed -i 's/#define SDL_AUDIO_DRIVER
 find /tmp/sdl_src -name "SDL_config*.h" -exec sed -i 's/#define SDL_AUDIO_DRIVER_OPENSLES 1/#define SDL_AUDIO_DRIVER_OPENSLES 0/g' {} +
 find /tmp/sdl_src -name "SDL_config*.h" -exec sed -i 's/#define SDL_JOYSTICK_HIDAPI 1/#define SDL_JOYSTICK_HIDAPI 0/g' {} +
 
-# Case-insensitively replace all AAudio and OpenSL ES source/header files with empty stubs
-find /tmp/sdl_src/src/audio -type f \( -iname "*opensl*" -o -iname "*aaudio*" \) -exec sh -c 'echo "// Disabled for API 19" > "$1"' _ {} \;
+# Populate OpenSL ES source files with valid AudioBootStrap and event stubs
+find /tmp/sdl_src/src/audio -type f -iname "*opensl*.c" -exec sh -c 'cat << "EOF" > "$1"
+#include "SDL_internal.h"
+#include "SDL_sysaudio.h"
 
-# Append dummy bootstrap structures and lifecycle functions to SDL_audio.c
-if [ -f "/tmp/sdl_src/src/audio/SDL_audio.c" ]; then
-    cat << 'EOF' >> /tmp/sdl_src/src/audio/SDL_audio.c
+static int DUMMY_OpenSL_Init(SDL_AudioDriverImpl *impl) { (void)impl; return 0; }
 
-/* Dummy AudioBootstrap & lifecycle stubs for API 19 bypass */
-static int DUMMY_AudioInit(SDL_AudioDriverImpl *impl) { return 0; }
-SDL_AudioBootstrap opensLES_bootstrap = { "opensles", "OpenSL ES", DUMMY_AudioInit, SDL_FALSE };
-SDL_AudioBootstrap OPENSLES_bootstrap = { "opensles", "OpenSL ES", DUMMY_AudioInit, SDL_FALSE };
-SDL_AudioBootstrap aaudio_bootstrap = { "aaudio", "AAudio", DUMMY_AudioInit, SDL_FALSE };
-SDL_AudioBootstrap AAUDIO_bootstrap = { "aaudio", "AAudio", DUMMY_AudioInit, SDL_FALSE };
+AudioBootStrap opensLES_bootstrap = { "opensles", "OpenSL ES", DUMMY_OpenSL_Init, 0 };
+AudioBootStrap OPENSLES_bootstrap = { "opensles", "OpenSL ES", DUMMY_OpenSL_Init, 0 };
 
 void opensLES_PauseDevices(void) {}
 void opensLES_ResumeDevices(void) {}
 void opensLES_DetectBrokenPlayState(void) {}
+EOF' _ {} \;
+
+# Populate AAudio source files with valid AudioBootStrap and event stubs
+find /tmp/sdl_src/src/audio -type f -iname "*aaudio*.c" -exec sh -c 'cat << "EOF" > "$1"
+#include "SDL_internal.h"
+#include "SDL_sysaudio.h"
+
+static int DUMMY_AAudio_Init(SDL_AudioDriverImpl *impl) { (void)impl; return 0; }
+
+AudioBootStrap aaudio_bootstrap = { "aaudio", "AAudio", DUMMY_AAudio_Init, 0 };
+AudioBootStrap AAUDIO_bootstrap = { "aaudio", "AAudio", DUMMY_AAudio_Init, 0 };
+
 void aaudio_PauseDevices(void) {}
 void aaudio_ResumeDevices(void) {}
 void aaudio_DetectBrokenPlayState(void) {}
-EOF
-fi
+EOF' _ {} \;
+
+# Clean dummy headers for audio backends
+find /tmp/sdl_src/src/audio -type f \( -iname "*opensl*.h" -o -iname "*aaudio*.h" \) -exec sh -c 'echo "// Dummy header" > "$1"' _ {} \;
 
 # Stub out hid.cpp to bypass GCC 4.9 template parsing bug in hidapi/android/hid.cpp
 if [ -f "/tmp/sdl_src/src/hidapi/android/hid.cpp" ]; then
