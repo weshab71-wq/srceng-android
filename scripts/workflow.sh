@@ -142,21 +142,19 @@ git clone --depth 1 -b release-2.0.22 https://github.com/libsdl-org/SDL.git /tmp
 # Disable external cpufeatures module import
 sed -i 's/$(call import-module,android\/cpufeatures)/# disabled cpufeatures import/g' /tmp/sdl_src/Android.mk
 
-# Embed NDK cpu-features into SDL2 build
+# Embed NDK cpu-features into SDL2 build (added once)
 cp "$NDK_HOME/sources/android/cpufeatures/cpu-features.h" /tmp/sdl_src/include/
 cp "$NDK_HOME/sources/android/cpufeatures/cpu-features.c" /tmp/sdl_src/src/cpuinfo/
+sed -i '/include $(BUILD_SHARED_LIBRARY)/i LOCAL_SRC_FILES += src/cpuinfo/cpu-features.c' /tmp/sdl_src/Android.mk
 
 # Strip warning flags
 sed -i '/-W/d' /tmp/sdl_src/Android.mk
 
-# Blank out existing native OpenSL ES and AAudio source files
-find /tmp/sdl_src/src/audio -type f \( -iname "*opensles*.c" -o -iname "*aaudio*.c" \) -exec sh -c 'echo "" > "$1"' _ {} \;
+# Replace native OpenSL ES and AAudio driver files directly with stub implementations
+mkdir -p /tmp/sdl_src/src/audio/opensles /tmp/sdl_src/src/audio/aaudio
 
-# Create stub C file containing missing symbols
-mkdir -p /tmp/sdl_src/src/audio/stubs
-cat << 'EOF' > /tmp/sdl_src/src/audio/stubs/sdl_audio_stubs.c
+cat << 'EOF' > /tmp/sdl_src/src/audio/opensles/SDL_openslesaudio.c
 #include "../../SDL_internal.h"
-#include "SDL_audio.h"
 #include "../SDL_sysaudio.h"
 
 static int STUB_AudioInit(SDL_AudioDriverImpl *impl) {
@@ -165,14 +163,14 @@ static int STUB_AudioInit(SDL_AudioDriverImpl *impl) {
 }
 
 AudioBootStrap opensLES_bootstrap = {
-    "opensles", "OpenSL ES Dummy", STUB_AudioInit, 0
+    "opensles", "OpenSL ES Stub", STUB_AudioInit, 0
 };
 
 void opensLES_PauseDevices(void) {}
 void opensLES_ResumeDevices(void) {}
 
 AudioBootStrap aaudio_bootstrap = {
-    "aaudio", "AAudio Dummy", STUB_AudioInit, 0
+    "aaudio", "AAudio Stub", STUB_AudioInit, 0
 };
 
 void aaudio_PauseDevices(void) {}
@@ -180,8 +178,7 @@ void aaudio_ResumeDevices(void) {}
 void aaudio_DetectBrokenPlayState(void) {}
 EOF
 
-# Explicitly insert stub source and cpu-features BEFORE include $(BUILD_SHARED_LIBRARY)
-sed -i '/include $(BUILD_SHARED_LIBRARY)/i LOCAL_SRC_FILES += src/cpuinfo/cpu-features.c src/audio/stubs/sdl_audio_stubs.c' /tmp/sdl_src/Android.mk
+cp /tmp/sdl_src/src/audio/opensles/SDL_openslesaudio.c /tmp/sdl_src/src/audio/aaudio/SDL_aaudio.c
 
 # Stub out hid.cpp to bypass GCC 4.9 template parsing bug in hidapi
 if [ -f "/tmp/sdl_src/src/hidapi/android/hid.cpp" ]; then
