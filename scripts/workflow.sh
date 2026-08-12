@@ -109,7 +109,7 @@ include $(CLEAR_VARS)
 LOCAL_MODULE := jpeg
 
 LOCAL_SRC_FILES := \
-    jcapimin.c jcapistd.c jccoefct.c jcdctmgr.c jchuff.c \
+    jcapimin.c jcapistd.c jccoefct.c jccolor.c jcdctmgr.c jchuff.c \
     jcinit.c jcmainct.c jcmarker.c jcmaster.c jcomapi.c jcparam.c \
     jcphuff.c jcsample.c jctrans.c jdapimin.c jdapistd.c jdatadst.c \
     jdatasrc.c jdcoefct.c jdcolor.c jddctmgr.c jdhuff.c jdmainct.c \
@@ -145,9 +145,9 @@ sed -i '/-W/d' /tmp/sdl_src/Android.mk
 # Completely remove AAudio directory so NDK build cannot find or compile it
 rm -rf /tmp/sdl_src/src/audio/aaudio
 
-# Patch SDL_openslES.c with missing Android OpenSL ES float definitions
+# Force-define SLDataFormat_PCM_EX structure safely for OpenSL ES on old NDKs
 if [ -f "/tmp/sdl_src/src/audio/openslES/SDL_openslES.c" ]; then
-    sed -i '1s/^/#include <SLES\/OpenSLES_AndroidConfiguration.h>\n#ifndef SL_ANDROID_KEY_PCM_FORMAT_EX\n#define SL_DATAFORMAT_PCM_EX 0x00000004\ntypedef struct SLDataFormat_PCM_EX_ {\n    SLuint32 formatType;\n    SLuint32 numChannels;\n    SLuint32 samplesPerSec;\n    SLuint32 bitsPerSample;\n    SLuint32 containerSize;\n    SLuint32 channelMask;\n    SLuint32 endianness;\n    SLuint32 representation;\n} SLDataFormat_PCM_EX;\n#define SL_ANDROID_PCM_REPRESENTATION_SIGNED_INT ((SLuint32) 0x00000001)\n#define SL_ANDROID_PCM_REPRESENTATION_UNSIGNED_INT ((SLuint32) 0x00000002)\n#define SL_ANDROID_PCM_REPRESENTATION_FLOAT ((SLuint32) 0x00000003)\n#endif\n/' /tmp/sdl_src/src/audio/openslES/SDL_openslES.c
+    sed -i '1s/^/#include <SLES\/OpenSLES_AndroidConfiguration.h>\n#undef SL_DATAFORMAT_PCM_EX\n#define SL_DATAFORMAT_PCM_EX 0x00000004\n#undef SLDataFormat_PCM_EX\ntypedef struct SLDataFormat_PCM_EX_ {\n    SLuint32 formatType;\n    SLuint32 numChannels;\n    SLuint32 samplesPerSec;\n    SLuint32 bitsPerSample;\n    SLuint32 containerSize;\n    SLuint32 channelMask;\n    SLuint32 endianness;\n    SLuint32 representation;\n} SLDataFormat_PCM_EX;\n#undef SL_ANDROID_PCM_REPRESENTATION_FLOAT\n#define SL_ANDROID_PCM_REPRESENTATION_SIGNED_INT ((SLuint32) 0x00000001)\n#define SL_ANDROID_PCM_REPRESENTATION_UNSIGNED_INT ((SLuint32) 0x00000002)\n#define SL_ANDROID_PCM_REPRESENTATION_FLOAT ((SLuint32) 0x00000003)\n/' /tmp/sdl_src/src/audio/openslES/SDL_openslES.c
 fi
 
 # Stub out hid.cpp to bypass GCC 4.9 template parsing bug in hidapi
