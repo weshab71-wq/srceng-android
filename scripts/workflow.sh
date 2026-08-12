@@ -160,6 +160,29 @@ find /tmp/sdl_src -name "SDL_config*.h" -exec sed -i 's/#define SDL_JOYSTICK_HID
 # Link NDK native OpenSL ES library explicitly
 echo 'LOCAL_LDLIBS += -lOpenSLES' >> /tmp/sdl_src/Android.mk
 
+# Stub out AAudio source and header to prevent looking for missing <aaudio/AAudio.h>
+cat << 'EOF' > /tmp/sdl_src/src/audio/aaudio/SDL_aaudio.h
+#ifndef SDL_aaudio_h_
+#define SDL_aaudio_h_
+#endif
+EOF
+
+cat << 'EOF' > /tmp/sdl_src/src/audio/aaudio/SDL_aaudio.c
+#include "../../SDL_internal.h"
+#include "SDL_audio.h"
+#include "../SDL_sysaudio.h"
+
+static int AAUDIO_Init(SDL_AudioDriverImpl *impl) { (void)impl; return 0; }
+
+AudioBootStrap aaudio_bootstrap = {
+    "aaudio", "AAudio Dummy", AAUDIO_Init, 0
+};
+
+void aaudio_PauseDevices(void) {}
+void aaudio_ResumeDevices(void) {}
+void aaudio_DetectBrokenPlayState(void) {}
+EOF
+
 # Stub out hid.cpp to bypass GCC 4.9 template parsing bug in hidapi/android/hid.cpp
 if [ -f "/tmp/sdl_src/src/hidapi/android/hid.cpp" ]; then
     cat << 'EOF' > /tmp/sdl_src/src/hidapi/android/hid.cpp
