@@ -153,11 +153,15 @@ echo 'LOCAL_SRC_FILES += src/cpuinfo/cpu-features.c' >> /tmp/sdl_src/Android.mk
 # Strip warning flags to prevent GCC 4.9 stop-on-warning errors
 sed -i '/-W/d' /tmp/sdl_src/Android.mk
 
-# Blank out existing native OpenSL ES and AAudio driver files
+# Blank out all existing native OpenSL ES and AAudio driver files
 find /tmp/sdl_src/src/audio -type f \( -iname "*opensles*.c" -o -iname "*aaudio*.c" \) -exec sh -c 'echo "" > "$1"' _ {} \;
 
-# Directly append stub implementations to SDL_audio.c (guaranteed to compile into libSDL2.so)
-cat << 'EOF' >> /tmp/sdl_src/src/audio/SDL_audio.c
+# Overwrite SDL_openslesaudio.c directly with unconditional stub implementations
+mkdir -p /tmp/sdl_src/src/audio/opensles
+cat << 'EOF' > /tmp/sdl_src/src/audio/opensles/SDL_openslesaudio.c
+#include "../../SDL_internal.h"
+#include "SDL_audio.h"
+#include "../SDL_sysaudio.h"
 
 static int STUB_AudioInit(SDL_AudioDriverImpl *impl) {
     (void)impl;
