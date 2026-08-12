@@ -112,7 +112,7 @@ include $(CLEAR_VARS)
 LOCAL_MODULE := jpeg
 
 LOCAL_SRC_FILES := \
-    jcapimin.c jcapistd.c jccoefct.c jccolor.c jcdctmgr.c jchuff.c \
+    jcapimin.c jcapistd.c jccoefct.c jcdctmgr.c jchuff.c \
     jcinit.c jcmainct.c jcmarker.c jcmaster.c jcomapi.c jcparam.c \
     jcphuff.c jcsample.c jctrans.c jdapimin.c jdapistd.c jdatadst.c \
     jdatasrc.c jdcoefct.c jdcolor.c jddctmgr.c jdhuff.c jdmainct.c \
@@ -188,6 +188,11 @@ extern "C" {
     const wchar_t* hid_error(void *device) { return NULL; }
 }
 EOF
+fi
+
+# Patch SDL_androidvideo.c with fallback defines for AHardwareBuffer formats
+if [ -f "/tmp/sdl_src/src/video/android/SDL_androidvideo.c" ]; then
+    sed -i '1s/^/#ifndef AHARDWAREBUFFER_FORMAT_R8G8B8A8_UNORM\n#define AHARDWAREBUFFER_FORMAT_R8G8B8A8_UNORM 1\n#endif\n#ifndef AHARDWAREBUFFER_FORMAT_R8G8B8X8_UNORM\n#define AHARDWAREBUFFER_FORMAT_R8G8B8X8_UNORM 2\n#endif\n#ifndef AHARDWAREBUFFER_FORMAT_R8G8B8_UNORM\n#define AHARDWAREBUFFER_FORMAT_R8G8B8_UNORM 3\n#endif\n#ifndef AHARDWAREBUFFER_FORMAT_R5G6B5_UNORM\n#define AHARDWAREBUFFER_FORMAT_R5G6B5_UNORM 4\n#endif\n/' /tmp/sdl_src/src/video/android/SDL_androidvideo.c
 fi
 
 # Patch SDL_egl.h with full suite of EGL 1.5 / KHR extension typedefs
