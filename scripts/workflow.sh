@@ -156,11 +156,8 @@ sed -i '/-W/d' /tmp/sdl_src/Android.mk
 # Blank out existing native OpenSL ES and AAudio driver files
 find /tmp/sdl_src/src/audio -type f \( -iname "*opensles*.c" -o -iname "*aaudio*.c" \) -exec sh -c 'echo "" > "$1"' _ {} \;
 
-# Create a dedicated stub C file with correct header include order
-cat << 'EOF' > /tmp/sdl_src/src/audio/sdl_audio_stubs.c
-#include "../SDL_internal.h"
-#include "SDL_audio.h"
-#include "SDL_sysaudio.h"
+# Directly append stub implementations to SDL_audio.c (guaranteed to compile into libSDL2.so)
+cat << 'EOF' >> /tmp/sdl_src/src/audio/SDL_audio.c
 
 static int STUB_AudioInit(SDL_AudioDriverImpl *impl) {
     (void)impl;
@@ -182,9 +179,6 @@ void aaudio_PauseDevices(void) {}
 void aaudio_ResumeDevices(void) {}
 void aaudio_DetectBrokenPlayState(void) {}
 EOF
-
-# Unconditionally add stub implementation into SDL2 Android.mk
-echo 'LOCAL_SRC_FILES += src/audio/sdl_audio_stubs.c' >> /tmp/sdl_src/Android.mk
 
 # Stub out hid.cpp to bypass GCC 4.9 template parsing bug in hidapi
 if [ -f "/tmp/sdl_src/src/hidapi/android/hid.cpp" ]; then
