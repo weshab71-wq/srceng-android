@@ -142,101 +142,38 @@ git clone --depth 1 -b release-2.0.22 https://github.com/libsdl-org/SDL.git /tmp
 # Disable warnings
 sed -i '/-W/d' /tmp/sdl_src/Android.mk
 
-# Disable audio drivers in SDL configuration
-CONF_FILE="/tmp/sdl_src/include/SDL_config_android.h"
-if [ -f "$CONF_FILE" ]; then
-    sed -i 's/#define SDL_AUDIO_DRIVER_OPENSLES 1/#define SDL_AUDIO_DRIVER_OPENSLES 0/' "$CONF_FILE"
-    sed -i 's/#define SDL_AUDIO_DRIVER_AAUDIO 1/#define SDL_AUDIO_DRIVER_AAUDIO 0/' "$CONF_FILE"
-    sed -i 's/#define SDL_AUDIO_DRIVER_DUMMY 0/#define SDL_AUDIO_DRIVER_DUMMY 1/' "$CONF_FILE"
-fi
+# Empty out audio driver subdirectories to prevent duplicate symbol issues
+find /tmp/sdl_src/src/audio/ -type f -name "*.c" \( -path "*/openslES/*" -o -path "*/aaudio/*" -o -path "*/opensles/*" \) -exec sh -c 'echo "/* empty */" > "$1"' _ {} \; 2>/dev/null || true
 
-# Locate OpenSL ES directory and generate clean stubs
-OPENSLES_DIR=""
-for d in /tmp/sdl_src/src/audio/*; do
-    if [ -d "$d" ]; then
-        b=$(basename "$d" | tr '[:upper:]' '[:lower:]')
-        if [[ "$b" == *"opensl"* ]]; then
-            OPENSLES_DIR="$d"
-        fi
-    fi
-done
+# Append unconditional driver stubs directly to src/SDL.c (always compiled into libSDL2.so)
+cat << 'EOF' >> /tmp/sdl_src/src/SDL.c
 
-if [ -n "$OPENSLES_DIR" ]; then
-    rm -rf "$OPENSLES_DIR"/*
-
-    cat << 'EOF' > "$OPENSLES_DIR/SDL_openslES.h"
-#ifndef SDL_openslES_h_
-#define SDL_openslES_h_
-#include "SDL_config.h"
-#include "SDL_audio.h"
-#include "../SDL_sysaudio.h"
-void opensLES_PauseDevices(void);
-void opensLES_ResumeDevices(void);
-extern AudioBootStrap opensLES_bootstrap;
-#endif
-EOF
-
-    cat << 'EOF' > "$OPENSLES_DIR/SDL_openslES.c"
-#include "SDL_config.h"
-#include "SDL_audio.h"
-#include "../SDL_sysaudio.h"
-#include "SDL_openslES.h"
-
-static int OPENSLES_Init(SDL_AudioDriverImpl *impl) { return 0; }
-
+/* Unconditional Stub Definitions for Android Audio Driver Symbols */
 void opensLES_PauseDevices(void) {}
 void opensLES_ResumeDevices(void) {}
-
-AudioBootStrap opensLES_bootstrap = {
-    "opensles", "OpenSL ES Stub Driver", OPENSLES_Init, 0
+static int STUB_OpenSL_Init(void *impl) { return 0; }
+struct {
+    const char *name;
+    const char *desc;
+    int (*init)(void *impl);
+    int demand_only;
+} opensLES_bootstrap = {
+    "opensles", "OpenSL ES Stub Driver", STUB_OpenSL_Init, 0
 };
-EOF
-fi
-
-# Locate AAudio directory and generate clean stubs
-AAUDIO_DIR=""
-for d in /tmp/sdl_src/src/audio/*; do
-    if [ -d "$d" ]; then
-        b=$(basename "$d" | tr '[:upper:]' '[:lower:]')
-        if [[ "$b" == *"aaudio"* ]]; then
-            AAUDIO_DIR="$d"
-        fi
-    fi
-done
-
-if [ -n "$AAUDIO_DIR" ]; then
-    rm -rf "$AAUDIO_DIR"/*
-
-    cat << 'EOF' > "$AAUDIO_DIR/SDL_aaudio.h"
-#ifndef SDL_aaudio_h_
-#define SDL_aaudio_h_
-#include "SDL_config.h"
-#include "SDL_audio.h"
-#include "../SDL_sysaudio.h"
-void aaudio_PauseDevices(void);
-void aaudio_ResumeDevices(void);
-void aaudio_DetectBrokenPlayState(void);
-extern AudioBootStrap aaudio_bootstrap;
-#endif
-EOF
-
-    cat << 'EOF' > "$AAUDIO_DIR/SDL_aaudio.c"
-#include "SDL_config.h"
-#include "SDL_audio.h"
-#include "../SDL_sysaudio.h"
-#include "SDL_aaudio.h"
-
-static int AAUDIO_Init(SDL_AudioDriverImpl *impl) { return 0; }
 
 void aaudio_PauseDevices(void) {}
 void aaudio_ResumeDevices(void) {}
 void aaudio_DetectBrokenPlayState(void) {}
-
-AudioBootStrap aaudio_bootstrap = {
-    "aaudio", "AAudio Stub Driver", AAUDIO_Init, 0
+static int STUB_AAudio_Init(void *impl) { return 0; }
+struct {
+    const char *name;
+    const char *desc;
+    int (*init)(void *impl);
+    int demand_only;
+} aaudio_bootstrap = {
+    "aaudio", "AAudio Stub Driver", STUB_AAudio_Init, 0
 };
 EOF
-fi
 
 # Stub out hid.cpp to bypass GCC 4.9 template parsing bug in hidapi
 if [ -f "/tmp/sdl_src/src/hidapi/android/hid.cpp" ]; then
