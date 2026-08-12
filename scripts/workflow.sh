@@ -112,7 +112,7 @@ include $(CLEAR_VARS)
 LOCAL_MODULE := jpeg
 
 LOCAL_SRC_FILES := \
-    jcapimin.c jcapistd.c jccoefct.c jcdctmgr.c jchuff.c \
+    jcapimin.c jcapistd.c jccoefct.c jccolor.c jcdctmgr.c jchuff.c \
     jcinit.c jcmainct.c jcmarker.c jcmaster.c jcomapi.c jcparam.c \
     jcphuff.c jcsample.c jctrans.c jdapimin.c jdapistd.c jdatadst.c \
     jdatasrc.c jdcoefct.c jdcolor.c jddctmgr.c jdhuff.c jdmainct.c \
@@ -159,6 +159,19 @@ find /tmp/sdl_src -name "SDL_config*.h" -exec sed -i 's/#define SDL_JOYSTICK_HID
 
 # Case-insensitively replace all AAudio and OpenSL ES source/header files with empty stubs
 find /tmp/sdl_src/src/audio -type f \( -iname "*opensl*" -o -iname "*aaudio*" \) -exec sh -c 'echo "// Disabled for API 19" > "$1"' _ {} \;
+
+# Append dummy stubs for audio device lifecycle functions called by SDL_androidevents.c
+if [ -f "/tmp/sdl_src/src/audio/android/SDL_androidaudio.c" ]; then
+    cat << 'EOF' >> /tmp/sdl_src/src/audio/android/SDL_androidaudio.c
+
+void opensLES_PauseDevices(void) {}
+void opensLES_ResumeDevices(void) {}
+void opensLES_DetectBrokenPlayState(void) {}
+void aaudio_PauseDevices(void) {}
+void aaudio_ResumeDevices(void) {}
+void aaudio_DetectBrokenPlayState(void) {}
+EOF
+fi
 
 # Stub out hid.cpp to bypass GCC 4.9 template parsing bug in hidapi/android/hid.cpp
 if [ -f "/tmp/sdl_src/src/hidapi/android/hid.cpp" ]; then
