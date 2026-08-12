@@ -222,28 +222,34 @@ if [ -n "$ENGINE_MK" ]; then
         -j$(nproc --all) || true
 fi
 
-# 7. Package Launcher APK
+# 7. Configure SDK and Package Launcher APK
 echo "Packaging Android APK..."
-LAUNCHER_DIR=$(find $WORKSPACE_DIR -name "AndroidManifest.xml" ! -path "*/android-sdk/*" | head -n 1 | xargs dirname 2>/dev/null || echo "")
+LAUNCHER_DIR=$(find $WORKSPACE_DIR -name "AndroidManifest.xml" ! -path "*/android-sdk/*" ! -path "*/ndk-binaries/*" | head -n 1 | xargs dirname 2>/dev/null || echo "")
 
 if [ -n "$LAUNCHER_DIR" ] && [ -d "$LAUNCHER_DIR" ]; then
     cd "$LAUNCHER_DIR"
     
-    # Patch targetSdkVersion to API 28 so modern Android won't block installation
+    # Target SDK patch (API 28)
     sed -i 's/android:targetSdkVersion="[0-9]*"/android:targetSdkVersion="28"/g' AndroidManifest.xml 2>/dev/null || true
 
-    # Prepare native libs directory inside launcher
+    # Prepare native libs
     mkdir -p libs/armeabi-v7a
     find $WORKSPACE_DIR -name "*.so" -exec cp {} libs/armeabi-v7a/ \; 2>/dev/null || true
     find /tmp/sdl_src -name "*.so" -exec cp {} libs/armeabi-v7a/ \; 2>/dev/null || true
 
-    # Build the debug APK with legacy Android SDK path
-    if [ -f "build.xml" ]; then
-        if [ -d "$WORKSPACE_DIR/android-sdk" ]; then
-            ant debug -Dsdk.dir="$WORKSPACE_DIR/android-sdk"
-        else
-            ant debug
+    # Point local.properties to cloned legacy SDK
+    SDK_PATH="$WORKSPACE_DIR/android-sdk"
+    if [ -d "$SDK_PATH" ]; then
+        echo "sdk.dir=$SDK_PATH" > local.properties
+        if [ -f "$SDK_PATH/tools/android" ]; then
+            chmod +x "$SDK_PATH/tools/android"
+            "$SDK_PATH/tools/android" update project --path . || true
         fi
+    fi
+
+    # Build the APK
+    if [ -f "build.xml" ]; then
+        ant debug
     elif [ -f "gradlew" ]; then
         chmod +x gradlew
         ./gradlew assembleDebug
@@ -252,9 +258,8 @@ if [ -n "$LAUNCHER_DIR" ] && [ -d "$LAUNCHER_DIR" ]; then
     cd $WORKSPACE_DIR
 fi
 
-# Debug: Locate any generated APKs across the system
+# Debug: Locate generated APKs across workspace
 echo "=== Searching for generated APK files ==="
 find . -name "*.apk" -ls
-find / -name "*.apk" 2>/dev/null | grep -v "/proc" | grep -v "/sys" || true
 
 echo "=== Build Workflow Script Finished Successfully ==="
