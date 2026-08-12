@@ -142,6 +142,19 @@ git clone --depth 1 -b release-2.0.22 https://github.com/libsdl-org/SDL.git /tmp
 # Disable warnings
 sed -i '/-W/d' /tmp/sdl_src/Android.mk
 
+# Remove AAudio and OpenSL ES source file completely, add a safe stub
+rm -rf /tmp/sdl_src/src/audio/aaudio
+rm -f /tmp/sdl_src/src/audio/openslES/SDL_openslES.c
+
+cat << 'EOF' > /tmp/sdl_src/src/audio/openslES/SDL_openslES_stub.c
+extern "C" {
+    void OpenslES_Bootstrap(void) {}
+}
+EOF
+
+# Append the stub source to Android.mk so it compiles cleanly
+echo "LOCAL_SRC_FILES += src/audio/openslES/SDL_openslES_stub.c" >> /tmp/sdl_src/Android.mk
+
 # Stub out hid.cpp to bypass GCC 4.9 template parsing bug in hidapi
 if [ -f "/tmp/sdl_src/src/hidapi/android/hid.cpp" ]; then
     cat << 'EOF' > /tmp/sdl_src/src/hidapi/android/hid.cpp
@@ -181,12 +194,12 @@ if [ -f "/tmp/sdl_src/include/SDL_egl.h" ]; then
     sed -i '1s/^/#include <stdint.h>\n#include <EGL\/egl.h>\n#include <EGL\/eglplatform.h>\ntypedef void *EGLImage;\ntypedef void *EGLImageKHR;\ntypedef void *EGLSync;\ntypedef void *EGLSyncKHR;\ntypedef void *EGLStreamKHR;\ntypedef intptr_t EGLAttrib;\ntypedef intptr_t EGLAttribKHR;\ntypedef uint64_t EGLTime;\ntypedef uint64_t EGLTimeKHR;\ntypedef uint64_t EGLGLuint64KHR;\ntypedef int EGLNativeFileDescriptorKHR;\n/' /tmp/sdl_src/include/SDL_egl.h
 fi
 
-# Application configuration: Disable OpenSL and AAudio to compile cleanly with dummy audio backend
+# Application configuration
 cat << 'EOF' > /tmp/sdl_src/Application.mk
 APP_ABI := armeabi-v7a
 APP_PLATFORM := android-19
 APP_STL := stlport_static
-APP_CFLAGS := -w -Wno-error -DSDL_HIDAPI_DISABLED=1 -DSDL_AUDIO_DRIVER_OPENSLES=0 -DSDL_AUDIO_DRIVER_AAUDIO=0
+APP_CFLAGS := -w -Wno-error -DSDL_HIDAPI_DISABLED=1
 EOF
 
 # Build SDL2
