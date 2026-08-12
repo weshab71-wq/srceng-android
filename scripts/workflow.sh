@@ -134,20 +134,19 @@ EOF
 
 cd $WORKSPACE_DIR
 
-# 5. Build SDL2 with OpenSL ES Audio
-echo "Building SDL2 natively with OpenSL ES audio support..."
+# 5. Build SDL2 Cleanly
+echo "Building SDL2..."
 rm -rf /tmp/sdl_src
 git clone --depth 1 -b release-2.0.22 https://github.com/libsdl-org/SDL.git /tmp/sdl_src
 
 # Disable warnings
 sed -i '/-W/d' /tmp/sdl_src/Android.mk
 
-# Completely remove AAudio directory
+# Remove AAudio
 rm -rf /tmp/sdl_src/src/audio/aaudio
 
-# Patch SDL_openslES.c to bypass the extended PCM format block completely
-if [ -f "/tmp/sdl_src/src/audio/openslES/SDL_openslES.c" ]; then
-    sed -i 's/defined(SL_ANDROID_KEY_PCM_FORMAT_EX)/0/' /tmp/sdl_src/src/audio/openslES/SDL_openslES.c
+# Completely neutralize the floating point audio block in SDL_openslES.c causing the crash
+if [ -f "/tmp/sdl_src/src/audio/openslES/SDL_openslES.c" ];> /tmp/sdl_src/src/audio/openslES/SDL_openslES.c
 fi
 
 # Stub out hid.cpp to bypass GCC 4.9 template parsing bug in hidapi
@@ -189,13 +188,12 @@ if [ -f "/tmp/sdl_src/include/SDL_egl.h" ]; then
     sed -i '1s/^/#include <stdint.h>\n#include <EGL\/egl.h>\n#include <EGL\/eglplatform.h>\ntypedef void *EGLImage;\ntypedef void *EGLImageKHR;\ntypedef void *EGLSync;\ntypedef void *EGLSyncKHR;\ntypedef void *EGLStreamKHR;\ntypedef intptr_t EGLAttrib;\ntypedef intptr_t EGLAttribKHR;\ntypedef uint64_t EGLTime;\ntypedef uint64_t EGLTimeKHR;\ntypedef uint64_t EGLGLuint64KHR;\ntypedef int EGLNativeFileDescriptorKHR;\n/' /tmp/sdl_src/include/SDL_egl.h
 fi
 
-# Application configuration: Keep OpenSL ES active, disable AAudio
+# Application configuration
 cat << 'EOF' > /tmp/sdl_src/Application.mk
 APP_ABI := armeabi-v7a
 APP_PLATFORM := android-19
 APP_STL := stlport_static
-APP_CFLAGS := -w -Wno-error -DSDL_HIDAPI_DISABLED=1 -DSDL_AUDIO_DRIVER_OPENSLES=1 -DSDL_AUDIO_DRIVER_AAUDIO=0
-APP_LDFLAGS := -lOpenSLES
+APP_CFLAGS := -w -Wno-error -DSDL_HIDAPI_DISABLED=1
 EOF
 
 # Build SDL2
