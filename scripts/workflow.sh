@@ -150,10 +150,9 @@ sed -i '/include $(BUILD_SHARED_LIBRARY)/i LOCAL_SRC_FILES += src/cpuinfo/cpu-fe
 # Strip warning flags
 sed -i '/-W/d' /tmp/sdl_src/Android.mk
 
-# Create clean, isolated stub implementations for OpenSL ES and AAudio drivers
-mkdir -p /tmp/sdl_src/src/audio/opensles /tmp/sdl_src/src/audio/aaudio
-
-cat << 'EOF' > /tmp/sdl_src/src/audio/opensles/SDL_openslesaudio.c
+# Dynamically locate and overwrite all OpenSL ES driver files with safe stubs
+for file in $(find /tmp/sdl_src/src/audio -type f -iname "*opensles*.c"); do
+    cat << 'EOF' > "$file"
 #include "SDL.h"
 #include "../SDL_sysaudio.h"
 
@@ -169,8 +168,11 @@ AudioBootStrap opensLES_bootstrap = {
 void opensLES_PauseDevices(void) {}
 void opensLES_ResumeDevices(void) {}
 EOF
+done
 
-cat << 'EOF' > /tmp/sdl_src/src/audio/aaudio/SDL_aaudio.c
+# Dynamically locate and overwrite all AAudio driver files with safe stubs
+for file in $(find /tmp/sdl_src/src/audio -type f -iname "*aaudio*.c"); do
+    cat << 'EOF' > "$file"
 #include "SDL.h"
 #include "../SDL_sysaudio.h"
 
@@ -187,6 +189,7 @@ void aaudio_PauseDevices(void) {}
 void aaudio_ResumeDevices(void) {}
 void aaudio_DetectBrokenPlayState(void) {}
 EOF
+done
 
 # Stub out hid.cpp to bypass GCC 4.9 template parsing bug in hidapi
 if [ -f "/tmp/sdl_src/src/hidapi/android/hid.cpp" ]; then
