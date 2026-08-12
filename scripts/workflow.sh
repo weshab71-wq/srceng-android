@@ -134,7 +134,7 @@ EOF
 
 cd $WORKSPACE_DIR
 
-# 5. Clean SDL2 Build with Patched OpenSL ES Header Support
+# 5. Build SDL2 with OpenSL ES Audio
 echo "Building SDL2 natively with OpenSL ES audio support..."
 rm -rf /tmp/sdl_src
 git clone --depth 1 -b release-2.0.22 https://github.com/libsdl-org/SDL.git /tmp/sdl_src
@@ -146,6 +146,9 @@ sed -i '/-W/d' /tmp/sdl_src/Android.mk
 if [ -f "/tmp/sdl_src/src/audio/openslES/SDL_openslES.c" ]; then
     sed -i '1s/^/#include <SLES\/OpenSLES_AndroidConfiguration.h>\n#ifndef SL_ANDROID_KEY_PCM_FORMAT_EX\n#define SL_DATAFORMAT_PCM_EX 0x00000004\ntypedef struct SLDataFormat_PCM_EX_ {\n    SLuint32 formatType;\n    SLuint32 numChannels;\n    SLuint32 samplesPerSec;\n    SLuint32 bitsPerSample;\n    SLuint32 containerSize;\n    SLuint32 channelMask;\n    SLuint32 endianness;\n    SLuint32 representation;\n} SLDataFormat_PCM_EX;\n#define SL_ANDROID_PCM_REPRESENTATION_SIGNED_INT ((SLuint32) 0x00000001)\n#define SL_ANDROID_PCM_REPRESENTATION_UNSIGNED_INT ((SLuint32) 0x00000002)\n#define SL_ANDROID_PCM_REPRESENTATION_FLOAT ((SLuint32) 0x00000003)\n#endif\n/' /tmp/sdl_src/src/audio/openslES/SDL_openslES.c
 fi
+
+# Stub out AAudio source to prevent missing <aaudio/AAudio.h> build failure on API 19
+find /tmp/sdl_src/src/audio/aaudio/ -type f -name "*.c" -exec sh -c 'echo "/* empty */" > "$1"' _ {} \; 2>/devnull || true
 
 # Stub out hid.cpp to bypass GCC 4.9 template parsing bug in hidapi
 if [ -f "/tmp/sdl_src/src/hidapi/android/hid.cpp" ]; then
