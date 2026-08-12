@@ -26,7 +26,7 @@ cat << EOF > $GCC_WRAPPER_DIR/arm-linux-androideabi-gcc
 ARGS=()
 for arg in "\$@"; do
     case \$arg in
-        -mthumb|-marm|-Wl,--fix-cortex-a8|-Wl,--no-undefined) ;;
+        -mthumb|-marm|-Wl,--fix-cortex-a8|-Wl,--no-undefined|-Wl,-z,defs) ;;
         *) ARGS+=("\$arg") ;;
     esac
 done
@@ -38,7 +38,7 @@ cat << EOF > $GCC_WRAPPER_DIR/arm-linux-androideabi-g++
 ARGS=()
 for arg in "\$@"; do
     case \$arg in
-        -mthumb|-marm|-Wl,--fix-cortex-a8|-Wl,--no-undefined) ;;
+        -mthumb|-marm|-Wl,--fix-cortex-a8|-Wl,--no-undefined|-Wl,-z,defs) ;;
         *) ARGS+=("\$arg") ;;
     esac
 done
@@ -68,7 +68,7 @@ mkdir -p /tmp/libjpeg_src
 git clone --depth 1 -b 2.0.6 https://github.com/libjpeg-turbo/libjpeg-turbo.git /tmp/libjpeg_src
 cd /tmp/libjpeg_src
 
-# Complete Public Configuration Header
+# Public Configuration Header
 cat << 'EOF' > jconfig.h
 #ifndef JCONFIG_H
 #define JCONFIG_H
@@ -88,7 +88,7 @@ cat << 'EOF' > jconfig.h
 #endif
 EOF
 
-# Complete Internal Configuration Header
+# Internal Configuration Header
 cat << 'EOF' > jconfigint.h
 #ifndef JCONFIGINT_H
 #define JCONFIGINT_H
@@ -122,6 +122,7 @@ LOCAL_SRC_FILES := \
     jutils.c jsimd_none.c
 
 LOCAL_CFLAGS := -w -O3 -DJPEG_LIB_VERSION=62 -DINLINE=__inline__ -DNO_GETENV
+LOCAL_EXPORT_C_INCLUDES := $(LOCAL_PATH)
 include $(BUILD_STATIC_LIBRARY)
 EOF
 
@@ -149,18 +150,38 @@ cp "$NDK_HOME/sources/android/cpufeatures/cpu-features.h" /tmp/sdl_src/include/
 cp "$NDK_HOME/sources/android/cpufeatures/cpu-features.c" /tmp/sdl_src/src/cpuinfo/
 echo 'LOCAL_SRC_FILES += src/cpuinfo/cpu-features.c' >> /tmp/sdl_src/Android.mk
 
-# Strip warning flags to prevent GCC 4.9 errors
+# Strip warning flags to prevent GCC 4.9 stop-on-warning errors
 sed -i '/-W/d' /tmp/sdl_src/Android.mk
 
-# Force OpenSL ES ON and AAudio/HIDAPI OFF across all SDL configuration headers
-find /tmp/sdl_src -name "SDL_config*.h" -exec sed -i 's/#define SDL_AUDIO_DRIVER_OPENSLES 0/#define SDL_AUDIO_DRIVER_OPENSLES 1/g' {} +
+# Enable Android JNI Audio & Disable problematic AAudio / OpenSL ES / HIDAPI drivers
+find /tmp/sdl_src -name "SDL_config*.h" -exec sed -i 's/#define SDL_AUDIO_DRIVER_OPENSLES 1/#define SDL_AUDIO_DRIVER_OPENSLES 0/g' {} +
 find /tmp/sdl_src -name "SDL_config*.h" -exec sed -i 's/#define SDL_AUDIO_DRIVER_AAUDIO 1/#define SDL_AUDIO_DRIVER_AAUDIO 0/g' {} +
+find /tmp/sdl_src -name "SDL_config*.h" -exec sed -i 's/#define SDL_AUDIO_DRIVER_ANDROID 0/#define SDL_AUDIO_DRIVER_ANDROID 1/g' {} +
 find /tmp/sdl_src -name "SDL_config*.h" -exec sed -i 's/#define SDL_JOYSTICK_HIDAPI 1/#define SDL_JOYSTICK_HIDAPI 0/g' {} +
 
-# Link NDK native OpenSL ES library explicitly
-echo 'LOCAL_LDLIBS += -lOpenSLES' >> /tmp/sdl_src/Android.mk
+# Stub out OpenSL ES driver sources completely
+cat << 'EOF' > /tmp/sdl_src/src/audio/opensles/SDL_opensles.h
+#ifndef SDL_opensles_h_
+#define SDL_opensles_h_
+#endif
+EOF
 
-# Stub out AAudio source and header to prevent looking for missing <aaudio/AAudio.h>
+cat << 'EOF' > /tmp/sdl_src/src/audio/opensles/SDL_opensles.c
+#include "../../SDL_internal.h"
+#include "SDL_audio.h"
+#include "../SDL_sysaudio.h"
+
+static int OPENSLES_Init(SDL_AudioDriverImpl *impl) { (void)impl; return 0; }
+
+AudioBootStrap opensLES_bootstrap = {
+    "opensles", "OpenSL ES Dummy", OPENSLES_Init, 0
+};
+
+void opensLES_PauseDevices(void) {}
+void opensLES_ResumeDevices(void) {}
+EOF
+
+# Stub out AAudio driver sources completely
 cat << 'EOF' > /tmp/sdl_src/src/audio/aaudio/SDL_aaudio.h
 #ifndef SDL_aaudio_h_
 #define SDL_aaudio_h_
@@ -183,10 +204,9 @@ void aaudio_ResumeDevices(void) {}
 void aaudio_DetectBrokenPlayState(void) {}
 EOF
 
-# Stub out hid.cpp to bypass GCC 4.9 template parsing bug in hidapi/android/hid.cpp
+# Stub out hid.cpp to bypass GCC 4.9 template parsing bug in hidapi
 if [ -f "/tmp/sdl_src/src/hidapi/android/hid.cpp" ]; then
     cat << 'EOF' > /tmp/sdl_src/src/hidapi/android/hid.cpp
-// Stubbed for GCC 4.9 NDK r10e compatibility
 #include <stddef.h>
 #include <wchar.h>
 
@@ -223,14 +243,15 @@ if [ -f "/tmp/sdl_src/include/SDL_egl.h" ]; then
     sed -i '1s/^/#include <stdint.h>\n#include <EGL\/egl.h>\n#include <EGL\/eglplatform.h>\ntypedef void *EGLImage;\ntypedef void *EGLImageKHR;\ntypedef void *EGLSync;\ntypedef void *EGLSyncKHR;\ntypedef void *EGLStreamKHR;\ntypedef intptr_t EGLAttrib;\ntypedef intptr_t EGLAttribKHR;\ntypedef uint64_t EGLTime;\ntypedef uint64_t EGLTimeKHR;\ntypedef uint64_t EGLGLuint64KHR;\ntypedef int EGLNativeFileDescriptorKHR;\n/' /tmp/sdl_src/include/SDL_egl.h
 fi
 
+# Application configuration flags
 cat << 'EOF' > /tmp/sdl_src/Application.mk
 APP_ABI := armeabi-v7a
 APP_PLATFORM := android-19
 APP_STL := stlport_static
-APP_CFLAGS := -w -Wno-error -DSDL_AUDIO_DRIVER_OPENSLES=1 -DSDL_AUDIO_DRIVER_AAUDIO=0 -DSDL_HIDAPI_DISABLED=1
+APP_CFLAGS := -w -Wno-error -DSDL_HIDAPI_DISABLED=1 -DSDL_AUDIO_DRIVER_OPENSLES=0 -DSDL_AUDIO_DRIVER_AAUDIO=0
 EOF
 
-# Run ndk-build
+# Build SDL2
 NDK_MODULE_PATH="$NDK_HOME/sources" "$NDK_HOME/ndk-build" \
     NDK_PROJECT_PATH=/tmp/sdl_src \
     APP_BUILD_SCRIPT=/tmp/sdl_src/Android.mk \
