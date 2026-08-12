@@ -156,9 +156,10 @@ sed -i '/-W/d' /tmp/sdl_src/Android.mk
 # Blank out existing native OpenSL ES and AAudio driver files
 find /tmp/sdl_src/src/audio -type f \( -iname "*opensles*.c" -o -iname "*aaudio*.c" \) -exec sh -c 'echo "" > "$1"' _ {} \;
 
-# Create a dedicated, unconditional stub C file for audio driver symbols
+# Create a dedicated stub C file with correct header include order
 cat << 'EOF' > /tmp/sdl_src/src/audio/sdl_audio_stubs.c
 #include "../SDL_internal.h"
+#include "SDL_audio.h"
 #include "SDL_sysaudio.h"
 
 static int STUB_AudioInit(SDL_AudioDriverImpl *impl) {
