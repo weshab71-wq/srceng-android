@@ -142,7 +142,7 @@ git clone --depth 1 -b release-2.0.22 https://github.com/libsdl-org/SDL.git /tmp
 # Disable external cpufeatures module import
 sed -i 's/$(call import-module,android\/cpufeatures)/# disabled cpufeatures import/g' /tmp/sdl_src/Android.mk
 
-# Embed NDK cpu-features into SDL2 build (added once)
+# Embed NDK cpu-features into SDL2 build
 cp "$NDK_HOME/sources/android/cpufeatures/cpu-features.h" /tmp/sdl_src/include/
 cp "$NDK_HOME/sources/android/cpufeatures/cpu-features.c" /tmp/sdl_src/src/cpuinfo/
 sed -i '/include $(BUILD_SHARED_LIBRARY)/i LOCAL_SRC_FILES += src/cpuinfo/cpu-features.c' /tmp/sdl_src/Android.mk
@@ -150,11 +150,11 @@ sed -i '/include $(BUILD_SHARED_LIBRARY)/i LOCAL_SRC_FILES += src/cpuinfo/cpu-fe
 # Strip warning flags
 sed -i '/-W/d' /tmp/sdl_src/Android.mk
 
-# Replace native OpenSL ES and AAudio driver files directly with stub implementations
+# Create clean, isolated stub implementations for OpenSL ES and AAudio drivers
 mkdir -p /tmp/sdl_src/src/audio/opensles /tmp/sdl_src/src/audio/aaudio
 
 cat << 'EOF' > /tmp/sdl_src/src/audio/opensles/SDL_openslesaudio.c
-#include "../../SDL_internal.h"
+#include "SDL.h"
 #include "../SDL_sysaudio.h"
 
 static int STUB_AudioInit(SDL_AudioDriverImpl *impl) {
@@ -168,6 +168,16 @@ AudioBootStrap opensLES_bootstrap = {
 
 void opensLES_PauseDevices(void) {}
 void opensLES_ResumeDevices(void) {}
+EOF
+
+cat << 'EOF' > /tmp/sdl_src/src/audio/aaudio/SDL_aaudio.c
+#include "SDL.h"
+#include "../SDL_sysaudio.h"
+
+static int STUB_AudioInit(SDL_AudioDriverImpl *impl) {
+    (void)impl;
+    return 0;
+}
 
 AudioBootStrap aaudio_bootstrap = {
     "aaudio", "AAudio Stub", STUB_AudioInit, 0
@@ -177,8 +187,6 @@ void aaudio_PauseDevices(void) {}
 void aaudio_ResumeDevices(void) {}
 void aaudio_DetectBrokenPlayState(void) {}
 EOF
-
-cp /tmp/sdl_src/src/audio/opensles/SDL_openslesaudio.c /tmp/sdl_src/src/audio/aaudio/SDL_aaudio.c
 
 # Stub out hid.cpp to bypass GCC 4.9 template parsing bug in hidapi
 if [ -f "/tmp/sdl_src/src/hidapi/android/hid.cpp" ]; then
