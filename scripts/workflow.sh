@@ -150,6 +150,11 @@ if [ -f "$CONF_FILE" ]; then
     sed -i 's/#define SDL_AUDIO_DRIVER_DUMMY 0/#define SDL_AUDIO_DRIVER_DUMMY 1/' "$CONF_FILE"
 fi
 
+# Stub out all files inside AAudio and OpenSL ES source directories
+for file in $(find /tmp/sdl_src/src/audio/aaudio /tmp/sdl_src/src/audio/opensLES /tmp/sdl_src/src/audio/opensles -type f 2>/dev/null); do
+    echo "/* stubbed */" > "$file"
+done
+
 # Append stub implementations directly to SDL_audio.c so they are guaranteed to link into libSDL2.so
 cat << 'EOF' >> /tmp/sdl_src/src/audio/SDL_audio.c
 
