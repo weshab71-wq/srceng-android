@@ -134,8 +134,8 @@ EOF
 
 cd $WORKSPACE_DIR
 
-# 5. Native SDL2 Compilation with Audio Off
-echo "Building SDL2 natively using NDK..."
+# 5. Clean SDL2 Build with OpenSL ES Enabled
+echo "Building SDL2 natively with OpenSL ES audio support..."
 rm -rf /tmp/sdl_src
 git clone --depth 1 -b release-2.0.22 https://github.com/libsdl-org/SDL.git /tmp/sdl_src
 
@@ -181,12 +181,13 @@ if [ -f "/tmp/sdl_src/include/SDL_egl.h" ]; then
     sed -i '1s/^/#include <stdint.h>\n#include <EGL\/egl.h>\n#include <EGL\/eglplatform.h>\ntypedef void *EGLImage;\ntypedef void *EGLImageKHR;\ntypedef void *EGLSync;\ntypedef void *EGLSyncKHR;\ntypedef void *EGLStreamKHR;\ntypedef intptr_t EGLAttrib;\ntypedef intptr_t EGLAttribKHR;\ntypedef uint64_t EGLTime;\ntypedef uint64_t EGLTimeKHR;\ntypedef uint64_t EGLGLuint64KHR;\ntypedef int EGLNativeFileDescriptorKHR;\n/' /tmp/sdl_src/include/SDL_egl.h
 fi
 
-# Application configuration flags: Disable OpenSL ES & AAudio natively
+# Application configuration: Keep OpenSL ES active, disable AAudio (unsupported on NDK r10e / API 19)
 cat << 'EOF' > /tmp/sdl_src/Application.mk
 APP_ABI := armeabi-v7a
 APP_PLATFORM := android-19
 APP_STL := stlport_static
-APP_CFLAGS := -w -Wno-error -DSDL_HIDAPI_DISABLED=1 -DSDL_AUDIO_DRIVER_OPENSLES=0 -DSDL_AUDIO_DRIVER_AAUDIO=0 -DSDL_AUDIO_DRIVER_DUMMY=1
+APP_CFLAGS := -w -Wno-error -DSDL_HIDAPI_DISABLED=1 -DSDL_AUDIO_DRIVER_OPENSLES=1 -DSDL_AUDIO_DRIVER_AAUDIO=0
+APP_LDFLAGS := -lOpenSLES
 EOF
 
 # Build SDL2
