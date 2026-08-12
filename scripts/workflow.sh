@@ -150,6 +150,65 @@ if [ -f "$CONF_FILE" ]; then
     sed -i 's/#define SDL_AUDIO_DRIVER_DUMMY 0/#define SDL_AUDIO_DRIVER_DUMMY 1/' "$CONF_FILE"
 fi
 
+# Stub out AAudio header and source files to prevent missing <aaudio/AAudio.h> on API 19
+mkdir -p /tmp/sdl_src/src/audio/aaudio
+cat << 'EOF' > /tmp/sdl_src/src/audio/aaudio/SDL_aaudio.h
+#ifndef SDL_aaudio_h_
+#define SDL_aaudio_h_
+void aaudio_PauseDevices(void);
+void aaudio_ResumeDevices(void);
+void aaudio_DetectBrokenPlayState(void);
+#endif
+EOF
+
+cat << 'EOF' > /tmp/sdl_src/src/audio/aaudio/SDL_aaudio.c
+#include "SDL.h"
+#include "../SDL_sysaudio.h"
+
+static int STUB_AudioInit(SDL_AudioDriverImpl *impl) {
+    (void)impl;
+    return 0;
+}
+
+AudioBootStrap aaudio_bootstrap = {
+    "aaudio", "AAudio Stub", STUB_AudioInit, 0
+};
+
+void aaudio_PauseDevices(void) {}
+void aaudio_ResumeDevices(void) {}
+void aaudio_DetectBrokenPlayState(void) {}
+EOF
+
+# Stub out OpenSL ES header and source files
+for hfile in $(find /tmp/sdl_src/src/audio -type f -iname "*opensles*.h"); do
+    cat << 'EOF' > "$hfile"
+#ifndef SDL_openslesaudio_h_
+#define SDL_openslesaudio_h_
+void opensLES_PauseDevices(void);
+void opensLES_ResumeDevices(void);
+#endif
+EOF
+done
+
+for cfile in $(find /tmp/sdl_src/src/audio -type f -iname "*opensles*.c"); do
+    cat << 'EOF' > "$cfile"
+#include "SDL.h"
+#include "../SDL_sysaudio.h"
+
+static int STUB_AudioInit(SDL_AudioDriverImpl *impl) {
+    (void)impl;
+    return 0;
+}
+
+AudioBootStrap opensLES_bootstrap = {
+    "opensles", "OpenSL ES Stub", STUB_AudioInit, 0
+};
+
+void opensLES_PauseDevices(void) {}
+void opensLES_ResumeDevices(void) {}
+EOF
+done
+
 # Stub out hid.cpp to bypass GCC 4.9 template parsing bug in hidapi
 if [ -f "/tmp/sdl_src/src/hidapi/android/hid.cpp" ]; then
     cat << 'EOF' > /tmp/sdl_src/src/hidapi/android/hid.cpp
