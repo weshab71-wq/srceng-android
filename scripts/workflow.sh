@@ -139,10 +139,8 @@ echo "Building SDL2..."
 rm -rf /tmp/sdl_src
 git clone --depth 1 -b release-2.0.22 https://github.com/libsdl-org/SDL.git /tmp/sdl_src
 
-# Disable warnings
 sed -i '/-W/d' /tmp/sdl_src/Android.mk
 
-# Remove AAudio and OpenSL ES source files completely, add correctly cased bootstrap stubs
 rm -rf /tmp/sdl_src/src/audio/aaudio
 rm -f /tmp/sdl_src/src/audio/openslES/SDL_openslES.c
 
@@ -158,7 +156,6 @@ EOF
 
 echo "LOCAL_SRC_FILES += src/audio/openslES/SDL_openslES_stub.c" >> /tmp/sdl_src/Android.mk
 
-# Stub out hid.cpp to bypass GCC 4.9 template parsing bug in hidapi
 if [ -f "/tmp/sdl_src/src/hidapi/android/hid.cpp" ]; then
     cat << 'EOF' > /tmp/sdl_src/src/hidapi/android/hid.cpp
 #include <stddef.h>
@@ -209,18 +206,9 @@ NDK_MODULE_PATH="$NDK_HOME/sources" "$NDK_HOME/ndk-build" \
     NDK_TOOLCHAIN_VERSION=4.9 \
     -j$(nproc --all) || exit 1
 
-# 6. Build the Source Engine App / Final APK Package
-echo "Building Final App Package..."
-if [ -d "project" ]; then
-    cd project
-    # Link or copy the freshly built SDL2 into the project's jni path if needed
-    export NDK_ROOT=$NDK_HOME
-    export SDK_ROOT=$WORKSPACE_DIR/android-sdk
-    
-    # Run ndk-build and ant to generate the real APK
-    "$NDK_HOME/ndk-build" -j$(nproc --all)
-    ant debug
-    cd ..
-fi
+# Debug: Locate any generated APKs across the system
+echo "=== Searching for generated APK files ==="
+find . -name "*.apk" -ls
+find / -name "*.apk" 2>/dev/null | grep -v "/proc" | grep -v "/sys" || true
 
 echo "=== Build Workflow Script Finished Successfully ==="
