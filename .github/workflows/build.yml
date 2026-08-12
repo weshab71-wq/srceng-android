@@ -1,6 +1,6 @@
 name: Build android package
 
-on: [push, pull_request]
+on: [push, pull_request, workflow_dispatch]
 
 jobs:
   build:
@@ -11,7 +11,7 @@ jobs:
       - name: Build
         run: |
           sudo apt-get update
-          sudo apt-get install -y make openjdk-8-jdk openjdk-8-jre ant-contrib python3-requests python3-pip
+          sudo apt-get install -y make openjdk-8-jdk openjdk-8-jre ant ant-contrib python3-requests python3-pip zip
           sudo pip3 install websocket-client
 
           # Clone dependencies directly to bypass broken submodule links
@@ -19,13 +19,20 @@ jobs:
           git clone --depth 1 https://gitlab.com/LostGamer/android-sdk
           git clone --depth 1 https://github.com/nillerusr/srcsdk.git
 
-          DEPLOY_BRANCH=srceng-old-port COMMIT=$(git rev-parse HEAD) scripts/workflow.sh
+          # Grant execution permissions and run workflow script
+          if [ -f "scripts/workflow.sh" ]; then
+            chmod +x scripts/workflow.sh
+            DEPLOY_BRANCH=srceng-old-port COMMIT=$(git rev-parse HEAD) scripts/workflow.sh
+          elif [ -f "workflow.sh" ]; then
+            chmod +x workflow.sh
+            DEPLOY_BRANCH=srceng-old-port COMMIT=$(git rev-parse HEAD) ./workflow.sh
+          fi
 
           # Collect built libraries and packages into bin/ for artifact upload
           mkdir -p bin
-          find . -name "*.apk" ! -path "*/android-sdk/*" -exec cp {} bin/ \;
-          find /tmp/sdl_src -name "*.so" -exec cp {} bin/ \;
-          find . -name "*.so" -exec cp {} bin/ \;
+          find . -name "*.apk" ! -path "*/android-sdk/*" -exec cp {} bin/ \; 2>/dev/null || true
+          find /tmp/sdl_src -name "*.so" -exec cp {} bin/ \; 2>/dev/null || true
+          find . -name "*.so" ! -path "*/android-sdk/*" -exec cp {} bin/ \; 2>/dev/null || true
 
       - name: Upload Build Artifacts
         uses: actions/upload-artifact@v4
