@@ -150,30 +150,81 @@ if [ -f "$CONF_FILE" ]; then
     sed -i 's/#define SDL_AUDIO_DRIVER_DUMMY 0/#define SDL_AUDIO_DRIVER_DUMMY 1/' "$CONF_FILE"
 fi
 
-# Case-insensitive stubbing of all files inside AAudio and OpenSL ES directories
-for dir in /tmp/sdl_src/src/audio/*; do
-    if [ -d "$dir" ]; then
-        dir_lower=$(basename "$dir" | tr '[:upper:]' '[:lower:]')
-        if [[ "$dir_lower" == *"opensl"* ]] || [[ "$dir_lower" == *"aaudio"* ]]; then
-            echo "Stubbing audio driver directory: $dir"
-            find "$dir" -type f -exec sh -c 'echo "/* stubbed */" > "$1"' _ {} \;
+# Replace OpenSL ES driver files with safe stubs
+OPENSLES_DIR=""
+for d in /tmp/sdl_src/src/audio/*; do
+    if [ -d "$d" ]; then
+        b=$(basename "$d" | tr '[:upper:]' '[:lower:]')
+        if [[ "$b" == *"opensl"* ]]; then
+            OPENSLES_DIR="$d"
         fi
     fi
 done
 
-# Append stub implementations directly to SDL_audio.c so they are guaranteed to link into libSDL2.so
-cat << 'EOF' >> /tmp/sdl_src/src/audio/SDL_audio.c
+if [ -n "$OPENSLES_DIR" ]; then
+    cat << 'EOF' > "$OPENSLES_DIR/SDL_openslES.h"
+#ifndef SDL_openslES_h_
+#define SDL_openslES_h_
+#include "../SDL_sysaudio.h"
+void opensLES_PauseDevices(void);
+void opensLES_ResumeDevices(void);
+extern AudioBootStrap opensLES_bootstrap;
+#endif
+EOF
 
-/* Stubs for OpenSL ES and AAudio symbols referenced across SDL2 */
+    cat << 'EOF' > "$OPENSLES_DIR/SDL_openslES.c"
+#include "../SDL_sysaudio.h"
+#include "SDL_openslES.h"
+
+static int OPENSLES_Init(SDL_AudioDriverImpl *impl) { return 0; }
+
 void opensLES_PauseDevices(void) {}
 void opensLES_ResumeDevices(void) {}
-AudioBootStrap opensLES_bootstrap = { "opensles", "OpenSL ES Stub", NULL, 0 };
+
+AudioBootStrap opensLES_bootstrap = {
+    "opensles", "OpenSL ES Stub Driver", OPENSLES_Init, 0
+};
+EOF
+fi
+
+# Replace AAudio driver files with safe stubs
+AAUDIO_DIR=""
+for d in /tmp/sdl_src/src/audio/*; do
+    if [ -d "$d" ]; then
+        b=$(basename "$d" | tr '[:upper:]' '[:lower:]')
+        if [[ "$b" == *"aaudio"* ]]; then
+            AAUDIO_DIR="$d"
+        fi
+    fi
+done
+
+if [ -n "$AAUDIO_DIR" ]; then
+    cat << 'EOF' > "$AAUDIO_DIR/SDL_aaudio.h"
+#ifndef SDL_aaudio_h_
+#define SDL_aaudio_h_
+#include "../SDL_sysaudio.h"
+void aaudio_PauseDevices(void);
+void aaudio_ResumeDevices(void);
+void aaudio_DetectBrokenPlayState(void);
+extern AudioBootStrap aaudio_bootstrap;
+#endif
+EOF
+
+    cat << 'EOF' > "$AAUDIO_DIR/SDL_aaudio.c"
+#include "../SDL_sysaudio.h"
+#include "SDL_aaudio.h"
+
+static int AAUDIO_Init(SDL_AudioDriverImpl *impl) { return 0; }
 
 void aaudio_PauseDevices(void) {}
 void aaudio_ResumeDevices(void) {}
 void aaudio_DetectBrokenPlayState(void) {}
-AudioBootStrap aaudio_bootstrap = { "aaudio", "AAudio Stub", NULL, 0 };
+
+AudioBootStrap aaudio_bootstrap = {
+    "aaudio", "AAudio Stub Driver", AAUDIO_Init, 0
+};
 EOF
+fi
 
 # Stub out hid.cpp to bypass GCC 4.9 template parsing bug in hidapi
 if [ -f "/tmp/sdl_src/src/hidapi/android/hid.cpp" ]; then
