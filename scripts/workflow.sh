@@ -206,6 +206,43 @@ NDK_MODULE_PATH="$NDK_HOME/sources" "$NDK_HOME/ndk-build" \
     NDK_TOOLCHAIN_VERSION=4.9 \
     -j$(nproc --all) || exit 1
 
+# 6. Build Native Engine Libraries
+echo "Building Source Engine native libraries..."
+"$NDK_HOME/ndk-build" \
+    NDK_PROJECT_PATH=$WORKSPACE_DIR \
+    APP_ABI=armeabi-v7a \
+    APP_PLATFORM=android-19 \
+    APP_STL=stlport_static \
+    NDK_TOOLCHAIN_VERSION=4.9 \
+    NDK_MODULE_PATH="/tmp:/tmp/sdl_src" \
+    -j$(nproc --all) || true
+
+# 7. Package Launcher APK
+echo "Packaging Android APK..."
+LAUNCHER_DIR=$(find $WORKSPACE_DIR -name "AndroidManifest.xml" ! -path "*/android-sdk/*" | head -n 1 | xargs dirname 2>/dev/null || echo "")
+
+if [ -n "$LAUNCHER_DIR" ] && [ -d "$LAUNCHER_DIR" ]; then
+    cd "$LAUNCHER_DIR"
+    
+    # Patch targetSdkVersion to API 28 so modern Android won't block installation
+    sed -i 's/android:targetSdkVersion="[0-9]*"/android:targetSdkVersion="28"/g' AndroidManifest.xml 2>/dev/null || true
+
+    # Prepare native libs directory inside launcher
+    mkdir -p libs/armeabi-v7a
+    find $WORKSPACE_DIR -name "*.so" -exec cp {} libs/armeabi-v7a/ \; 2>/dev/null || true
+    find /tmp/sdl_src -name "*.so" -exec cp {} libs/armeabi-v7a/ \; 2>/dev/null || true
+
+    # Build the debug APK
+    if [ -f "build.xml" ]; then
+        ant debug
+    elif [ -f "gradlew" ]; then
+        chmod +x gradlew
+        ./gradlew assembleDebug
+    fi
+    
+    cd $WORKSPACE_DIR
+fi
+
 # Debug: Locate any generated APKs across the system
 echo "=== Searching for generated APK files ==="
 find . -name "*.apk" -ls
