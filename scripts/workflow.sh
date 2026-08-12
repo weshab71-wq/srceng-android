@@ -237,17 +237,24 @@ if [ -n "$LAUNCHER_DIR" ] && [ -d "$LAUNCHER_DIR" ]; then
     find $WORKSPACE_DIR -name "*.so" -exec cp {} libs/armeabi-v7a/ \; 2>/dev/null || true
     find /tmp/sdl_src -name "*.so" -exec cp {} libs/armeabi-v7a/ \; 2>/dev/null || true
 
-    # Point local.properties to cloned legacy SDK
+    # Explicitly set build target in project.properties
+    if [ -f "project.properties" ]; then
+        sed -i 's/target=.*/target=android-19/g' project.properties
+    else
+        echo "target=android-19" > project.properties
+    fi
+
+    # Point local.properties to cloned legacy SDK and update project
     SDK_PATH="$WORKSPACE_DIR/android-sdk"
     if [ -d "$SDK_PATH" ]; then
         echo "sdk.dir=$SDK_PATH" > local.properties
         if [ -f "$SDK_PATH/tools/android" ]; then
             chmod +x "$SDK_PATH/tools/android"
-            "$SDK_PATH/tools/android" update project --path . || true
+            "$SDK_PATH/tools/android" update project --path . --target android-19 || "$SDK_PATH/tools/android" update project --path . -t 1 || true
         fi
     fi
 
-    # Fix Java source/target options from legacy 1.6 to 1.7 for modern javac
+    # Fix Java source/target options from legacy 1.6 to 1.7 for javac
     sed -i 's/1\.6/1\.7/g' project.properties 2>/dev/null || true
     sed -i 's/1\.6/1\.7/g' build.xml 2>/dev/null || true
     echo "java.source=1.7" >> ant.properties
