@@ -139,16 +139,17 @@ echo "Building SDL2 natively using NDK..."
 rm -rf /tmp/sdl_src
 git clone --depth 1 -b release-2.0.22 https://github.com/libsdl-org/SDL.git /tmp/sdl_src
 
-# Disable warnings in Makefile
+# Disable warnings
 sed -i '/-W/d' /tmp/sdl_src/Android.mk
 
 # Clear auxiliary C files in openslES/aaudio subdirectories
-find /tmp/sdl_src/src/audio/ -type f -name "*.c" \( -path "*/openslES/*" -o -path "*/aaudio/*" -o -path "*/opensles/*" \) -exec sh -c 'echo "/* empty */" > "$1"' _ {} \; 2>/dev/null || true
+find /tmp/sdl_src/src/audio/ -type f -name "*.c" \( -path "*/openslES/*" -o -path "*/aaudio/*" -o -path "*/opensles/*" \) -exec sh -c 'echo "/* empty */" > "$1"' _ {} \; 2>/devnull || true
 
-# Inject C stub implementation into SDL_openslES.c
+# Inject C stub implementation into SDL_openslES.c with complete header chain
 find /tmp/sdl_src/src/audio/ -type f -iname "SDL_openslES.c" | while read -r f; do
 cat << 'EOF' > "$f"
-#include "../../SDL_internal.h"
+#include "SDL_config.h"
+#include "SDL_audio.h"
 #include "../SDL_sysaudio.h"
 
 static int OPENSLES_Init(SDL_AudioDriverImpl *impl) {
@@ -164,10 +165,11 @@ AudioBootStrap opensLES_bootstrap = {
 EOF
 done
 
-# Inject C stub implementation into SDL_aaudio.c
+# Inject C stub implementation into SDL_aaudio.c with complete header chain
 find /tmp/sdl_src/src/audio/ -type f -iname "SDL_aaudio.c" | while read -r f; do
 cat << 'EOF' > "$f"
-#include "../../SDL_internal.h"
+#include "SDL_config.h"
+#include "SDL_audio.h"
 #include "../SDL_sysaudio.h"
 
 static int AAUDIO_Init(SDL_AudioDriverImpl *impl) {
