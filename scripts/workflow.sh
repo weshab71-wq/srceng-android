@@ -134,57 +134,13 @@ EOF
 
 cd $WORKSPACE_DIR
 
-# 5. Robust SDL2 Source Compilation
+# 5. Native SDL2 Compilation with Audio Off
 echo "Building SDL2 natively using NDK..."
 rm -rf /tmp/sdl_src
 git clone --depth 1 -b release-2.0.22 https://github.com/libsdl-org/SDL.git /tmp/sdl_src
 
 # Disable warnings
 sed -i '/-W/d' /tmp/sdl_src/Android.mk
-
-# Clear auxiliary C files in openslES/aaudio subdirectories
-find /tmp/sdl_src/src/audio/ -type f -name "*.c" \( -path "*/openslES/*" -o -path "*/aaudio/*" -o -path "*/opensles/*" \) -exec sh -c 'echo "/* empty */" > "$1"' _ {} \; 2>/devnull || true
-
-# Inject C stub implementation into SDL_openslES.c with complete header chain
-find /tmp/sdl_src/src/audio/ -type f -iname "SDL_openslES.c" | while read -r f; do
-cat << 'EOF' > "$f"
-#include "SDL_config.h"
-#include "SDL_audio.h"
-#include "../SDL_sysaudio.h"
-
-static int OPENSLES_Init(SDL_AudioDriverImpl *impl) {
-    return 0;
-}
-
-void opensLES_PauseDevices(void) {}
-void opensLES_ResumeDevices(void) {}
-
-AudioBootStrap opensLES_bootstrap = {
-    "opensles", "OpenSL ES Stub Driver", OPENSLES_Init, SDL_FALSE
-};
-EOF
-done
-
-# Inject C stub implementation into SDL_aaudio.c with complete header chain
-find /tmp/sdl_src/src/audio/ -type f -iname "SDL_aaudio.c" | while read -r f; do
-cat << 'EOF' > "$f"
-#include "SDL_config.h"
-#include "SDL_audio.h"
-#include "../SDL_sysaudio.h"
-
-static int AAUDIO_Init(SDL_AudioDriverImpl *impl) {
-    return 0;
-}
-
-void aaudio_PauseDevices(void) {}
-void aaudio_ResumeDevices(void) {}
-void aaudio_DetectBrokenPlayState(void) {}
-
-AudioBootStrap aaudio_bootstrap = {
-    "aaudio", "AAudio Stub Driver", AAUDIO_Init, SDL_FALSE
-};
-EOF
-done
 
 # Stub out hid.cpp to bypass GCC 4.9 template parsing bug in hidapi
 if [ -f "/tmp/sdl_src/src/hidapi/android/hid.cpp" ]; then
@@ -225,12 +181,12 @@ if [ -f "/tmp/sdl_src/include/SDL_egl.h" ]; then
     sed -i '1s/^/#include <stdint.h>\n#include <EGL\/egl.h>\n#include <EGL\/eglplatform.h>\ntypedef void *EGLImage;\ntypedef void *EGLImageKHR;\ntypedef void *EGLSync;\ntypedef void *EGLSyncKHR;\ntypedef void *EGLStreamKHR;\ntypedef intptr_t EGLAttrib;\ntypedef intptr_t EGLAttribKHR;\ntypedef uint64_t EGLTime;\ntypedef uint64_t EGLTimeKHR;\ntypedef uint64_t EGLGLuint64KHR;\ntypedef int EGLNativeFileDescriptorKHR;\n/' /tmp/sdl_src/include/SDL_egl.h
 fi
 
-# Application configuration flags
+# Application configuration flags: Disable OpenSL ES & AAudio natively
 cat << 'EOF' > /tmp/sdl_src/Application.mk
 APP_ABI := armeabi-v7a
 APP_PLATFORM := android-19
 APP_STL := stlport_static
-APP_CFLAGS := -w -Wno-error -DSDL_HIDAPI_DISABLED=1
+APP_CFLAGS := -w -Wno-error -DSDL_HIDAPI_DISABLED=1 -DSDL_AUDIO_DRIVER_OPENSLES=0 -DSDL_AUDIO_DRIVER_AAUDIO=0 -DSDL_AUDIO_DRIVER_DUMMY=1
 EOF
 
 # Build SDL2
