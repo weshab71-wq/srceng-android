@@ -142,8 +142,9 @@ git clone --depth 1 -b release-2.0.22 https://github.com/libsdl-org/SDL.git /tmp
 # Disable warnings
 sed -i '/-W/d' /tmp/sdl_src/Android.mk
 
-# Remove AAudio
+# Remove AAudio and the broken OpenSL ES file entirely
 rm -rf /tmp/sdl_src/src/audio/aaudio
+rm -f /tmp/sdl_src/src/audio/openslES/SDL_openslES.c
 
 # Stub out hid.cpp to bypass GCC 4.9 template parsing bug in hidapi
 if [ -f "/tmp/sdl_src/src/hidapi/android/hid.cpp" ]; then
