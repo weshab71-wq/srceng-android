@@ -1,4 +1,4 @@
-Name: Build android package
+name: Build android package
 
 on: [push, pull_request]
 
