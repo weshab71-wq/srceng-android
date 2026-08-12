@@ -139,41 +139,50 @@ echo "Building SDL2 natively using NDK..."
 rm -rf /tmp/sdl_src
 git clone --depth 1 -b release-2.0.22 https://github.com/libsdl-org/SDL.git /tmp/sdl_src
 
-# Disable warnings
+# Disable warnings in Makefile
 sed -i '/-W/d' /tmp/sdl_src/Android.mk
 
-# Empty out audio driver subdirectories to prevent duplicate symbol issues
+# Clear auxiliary C files in openslES/aaudio subdirectories
 find /tmp/sdl_src/src/audio/ -type f -name "*.c" \( -path "*/openslES/*" -o -path "*/aaudio/*" -o -path "*/opensles/*" \) -exec sh -c 'echo "/* empty */" > "$1"' _ {} \; 2>/dev/null || true
 
-# Append unconditional driver stubs directly to src/SDL.c (always compiled into libSDL2.so)
-cat << 'EOF' >> /tmp/sdl_src/src/SDL.c
+# Inject C stub implementation into SDL_openslES.c
+find /tmp/sdl_src/src/audio/ -type f -iname "SDL_openslES.c" | while read -r f; do
+cat << 'EOF' > "$f"
+#include "../../SDL_internal.h"
+#include "../SDL_sysaudio.h"
 
-/* Unconditional Stub Definitions for Android Audio Driver Symbols */
+static int OPENSLES_Init(SDL_AudioDriverImpl *impl) {
+    return 0;
+}
+
 void opensLES_PauseDevices(void) {}
 void opensLES_ResumeDevices(void) {}
-static int STUB_OpenSL_Init(void *impl) { return 0; }
-struct {
-    const char *name;
-    const char *desc;
-    int (*init)(void *impl);
-    int demand_only;
-} opensLES_bootstrap = {
-    "opensles", "OpenSL ES Stub Driver", STUB_OpenSL_Init, 0
+
+AudioBootStrap opensLES_bootstrap = {
+    "opensles", "OpenSL ES Stub Driver", OPENSLES_Init, SDL_FALSE
 };
+EOF
+done
+
+# Inject C stub implementation into SDL_aaudio.c
+find /tmp/sdl_src/src/audio/ -type f -iname "SDL_aaudio.c" | while read -r f; do
+cat << 'EOF' > "$f"
+#include "../../SDL_internal.h"
+#include "../SDL_sysaudio.h"
+
+static int AAUDIO_Init(SDL_AudioDriverImpl *impl) {
+    return 0;
+}
 
 void aaudio_PauseDevices(void) {}
 void aaudio_ResumeDevices(void) {}
 void aaudio_DetectBrokenPlayState(void) {}
-static int STUB_AAudio_Init(void *impl) { return 0; }
-struct {
-    const char *name;
-    const char *desc;
-    int (*init)(void *impl);
-    int demand_only;
-} aaudio_bootstrap = {
-    "aaudio", "AAudio Stub Driver", STUB_AAudio_Init, 0
+
+AudioBootStrap aaudio_bootstrap = {
+    "aaudio", "AAudio Stub Driver", AAUDIO_Init, SDL_FALSE
 };
 EOF
+done
 
 # Stub out hid.cpp to bypass GCC 4.9 template parsing bug in hidapi
 if [ -f "/tmp/sdl_src/src/hidapi/android/hid.cpp" ]; then
