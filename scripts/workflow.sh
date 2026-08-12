@@ -144,6 +144,11 @@ git clone --depth 1 -b release-2.0.22 https://github.com/libsdl-org/SDL.git /tmp
 # Disable external cpufeatures module call
 sed -i 's/$(call import-module,android\/cpufeatures)/# disabled cpufeatures import/g' /tmp/sdl_src/Android.mk
 
+# Embed NDK's cpu-features source and header directly into SDL2 build
+cp "$NDK_HOME/sources/android/cpufeatures/cpu-features.h" /tmp/sdl_src/include/
+cp "$NDK_HOME/sources/android/cpufeatures/cpu-features.c" /tmp/sdl_src/src/cpuinfo/
+echo 'LOCAL_SRC_FILES += src/cpuinfo/cpu-features.c' >> /tmp/sdl_src/Android.mk
+
 # Strip warning flags to prevent GCC 4.9 errors
 sed -i '/-W/d' /tmp/sdl_src/Android.mk
 
