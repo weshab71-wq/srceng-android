@@ -157,35 +157,29 @@ find /tmp/sdl_src -name "SDL_config*.h" -exec sed -i 's/#define SDL_AUDIO_DRIVER
 find /tmp/sdl_src -name "SDL_config*.h" -exec sed -i 's/#define SDL_AUDIO_DRIVER_OPENSLES 1/#define SDL_AUDIO_DRIVER_OPENSLES 0/g' {} +
 find /tmp/sdl_src -name "SDL_config*.h" -exec sed -i 's/#define SDL_JOYSTICK_HIDAPI 1/#define SDL_JOYSTICK_HIDAPI 0/g' {} +
 
-# Populate OpenSL ES source files with relative header paths and valid AudioBootStrap stubs
-find /tmp/sdl_src/src/audio -type f -iname "*opensl*.c" -exec sh -c 'cat << "EOF" > "$1"
+# Generate clean dummy audio template file with proper include order
+cat << 'EOF' > /tmp/dummy_audio_stub.c
 #include "../../SDL_internal.h"
+#include "SDL_audio.h"
 #include "../SDL_sysaudio.h"
 
-static int DUMMY_OpenSL_Init(SDL_AudioDriverImpl *impl) { (void)impl; return 0; }
+static int DUMMY_Audio_Init(SDL_AudioDriverImpl *impl) { (void)impl; return 0; }
 
-AudioBootStrap opensLES_bootstrap = { "opensles", "OpenSL ES", DUMMY_OpenSL_Init, 0 };
-AudioBootStrap OPENSLES_bootstrap = { "opensles", "OpenSL ES", DUMMY_OpenSL_Init, 0 };
+AudioBootStrap opensLES_bootstrap = { "opensles", "OpenSL ES", DUMMY_Audio_Init, 0 };
+AudioBootStrap OPENSLES_bootstrap = { "opensles", "OpenSL ES", DUMMY_Audio_Init, 0 };
+AudioBootStrap aaudio_bootstrap = { "aaudio", "AAudio", DUMMY_Audio_Init, 0 };
+AudioBootStrap AAUDIO_bootstrap = { "aaudio", "AAudio", DUMMY_Audio_Init, 0 };
 
 void opensLES_PauseDevices(void) {}
 void opensLES_ResumeDevices(void) {}
 void opensLES_DetectBrokenPlayState(void) {}
-EOF' _ {} \;
-
-# Populate AAudio source files with relative header paths and valid AudioBootStrap stubs
-find /tmp/sdl_src/src/audio -type f -iname "*aaudio*.c" -exec sh -c 'cat << "EOF" > "$1"
-#include "../../SDL_internal.h"
-#include "../SDL_sysaudio.h"
-
-static int DUMMY_AAudio_Init(SDL_AudioDriverImpl *impl) { (void)impl; return 0; }
-
-AudioBootStrap aaudio_bootstrap = { "aaudio", "AAudio", DUMMY_AAudio_Init, 0 };
-AudioBootStrap AAUDIO_bootstrap = { "aaudio", "AAudio", DUMMY_AAudio_Init, 0 };
-
 void aaudio_PauseDevices(void) {}
 void aaudio_ResumeDevices(void) {}
 void aaudio_DetectBrokenPlayState(void) {}
-EOF' _ {} \;
+EOF
+
+# Copy template over all OpenSL ES and AAudio C source files
+find /tmp/sdl_src/src/audio -type f \( -iname "*opensl*.c" -o -iname "*aaudio*.c" \) -exec cp /tmp/dummy_audio_stub.c {} \;
 
 # Clean dummy headers for audio backends
 find /tmp/sdl_src/src/audio -type f \( -iname "*opensl*.h" -o -iname "*aaudio*.h" \) -exec sh -c 'echo "// Dummy header" > "$1"' _ {} \;
