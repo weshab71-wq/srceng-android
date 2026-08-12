@@ -142,9 +142,13 @@ git clone --depth 1 -b release-2.0.22 https://github.com/libsdl-org/SDL.git /tmp
 # Disable warnings
 sed -i '/-W/d' /tmp/sdl_src/Android.mk
 
-# Remove AAudio and the broken OpenSL ES file entirely
+# Remove AAudio only
 rm -rf /tmp/sdl_src/src/audio/aaudio
-rm -f /tmp/sdl_src/src/audio/openslES/SDL_openslES.c
+
+# Fix OpenSL ES extended PCM check so it doesn't try to compile the unsupported float block on old NDK headers
+if [ -f "/tmp/sdl_src/src/audio/openslES/SDL_openslES.c" ]; then
+    sed -i 's/#ifdef SL_ANDROID_KEY_PCM_FORMAT_EX/#if 0/g' /tmp/sdl_src/src/audio/openslES/SDL_openslES.c
+fi
 
 # Stub out hid.cpp to bypass GCC 4.9 template parsing bug in hidapi
 if [ -f "/tmp/sdl_src/src/hidapi/android/hid.cpp" ]; then
