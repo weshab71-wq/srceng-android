@@ -160,9 +160,16 @@ find /tmp/sdl_src -name "SDL_config*.h" -exec sed -i 's/#define SDL_JOYSTICK_HID
 # Case-insensitively replace all AAudio and OpenSL ES source/header files with empty stubs
 find /tmp/sdl_src/src/audio -type f \( -iname "*opensl*" -o -iname "*aaudio*" \) -exec sh -c 'echo "// Disabled for API 19" > "$1"' _ {} \;
 
-# Append dummy stubs for audio device lifecycle functions called by SDL_androidevents.c
-if [ -f "/tmp/sdl_src/src/audio/android/SDL_androidaudio.c" ]; then
-    cat << 'EOF' >> /tmp/sdl_src/src/audio/android/SDL_androidaudio.c
+# Append dummy bootstrap structures and lifecycle functions to SDL_audio.c
+if [ -f "/tmp/sdl_src/src/audio/SDL_audio.c" ]; then
+    cat << 'EOF' >> /tmp/sdl_src/src/audio/SDL_audio.c
+
+/* Dummy AudioBootstrap & lifecycle stubs for API 19 bypass */
+static int DUMMY_AudioInit(SDL_AudioDriverImpl *impl) { return 0; }
+SDL_AudioBootstrap opensLES_bootstrap = { "opensles", "OpenSL ES", DUMMY_AudioInit, SDL_FALSE };
+SDL_AudioBootstrap OPENSLES_bootstrap = { "opensles", "OpenSL ES", DUMMY_AudioInit, SDL_FALSE };
+SDL_AudioBootstrap aaudio_bootstrap = { "aaudio", "AAudio", DUMMY_AudioInit, SDL_FALSE };
+SDL_AudioBootstrap AAUDIO_bootstrap = { "aaudio", "AAudio", DUMMY_AudioInit, SDL_FALSE };
 
 void opensLES_PauseDevices(void) {}
 void opensLES_ResumeDevices(void) {}
