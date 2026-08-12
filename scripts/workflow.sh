@@ -152,12 +152,43 @@ echo 'LOCAL_SRC_FILES += src/cpuinfo/cpu-features.c' >> /tmp/sdl_src/Android.mk
 # Strip warning flags to prevent GCC 4.9 errors
 sed -i '/-W/d' /tmp/sdl_src/Android.mk
 
-# Disable AAudio and OpenSL ES in headers
+# Disable AAudio, OpenSL ES, and HIDAPI in headers
 find /tmp/sdl_src -name "SDL_config*.h" -exec sed -i 's/#define SDL_AUDIO_DRIVER_AAUDIO 1/#define SDL_AUDIO_DRIVER_AAUDIO 0/g' {} +
 find /tmp/sdl_src -name "SDL_config*.h" -exec sed -i 's/#define SDL_AUDIO_DRIVER_OPENSLES 1/#define SDL_AUDIO_DRIVER_OPENSLES 0/g' {} +
+find /tmp/sdl_src -name "SDL_config*.h" -exec sed -i 's/#define SDL_JOYSTICK_HIDAPI 1/#define SDL_JOYSTICK_HIDAPI 0/g' {} +
 
 # Case-insensitively replace all AAudio and OpenSL ES source/header files with empty stubs
 find /tmp/sdl_src/src/audio -type f \( -iname "*opensl*" -o -iname "*aaudio*" \) -exec sh -c 'echo "// Disabled for API 19" > "$1"' _ {} \;
+
+# Stub out hid.cpp to bypass GCC 4.9 template parsing bug in hidapi/android/hid.cpp
+if [ -f "/tmp/sdl_src/src/hidapi/android/hid.cpp" ]; then
+    cat << 'EOF' > /tmp/sdl_src/src/hidapi/android/hid.cpp
+// Stubbed for GCC 4.9 NDK r10e compatibility
+#include <stddef.h>
+#include <wchar.h>
+
+extern "C" {
+    int hid_init(void) { return 0; }
+    int hid_exit(void) { return 0; }
+    struct hid_device_info* hid_enumerate(unsigned short vendor_id, unsigned short product_id) { return NULL; }
+    void hid_free_enumeration(struct hid_device_info *devs) {}
+    void* hid_open(unsigned short vendor_id, unsigned short product_id, const wchar_t *serial_number) { return NULL; }
+    void* hid_open_path(const char *path, int b) { return NULL; }
+    int hid_write(void *device, const unsigned char *data, size_t length) { return -1; }
+    int hid_read_timeout(void *dev, unsigned char *data, size_t length, int milliseconds) { return -1; }
+    int hid_read(void *device, unsigned char *data, size_t length) { return -1; }
+    int hid_set_nonblocking(void *device, int nonblock) { return -1; }
+    int hid_send_feature_report(void *device, const unsigned char *data, size_t length) { return -1; }
+    int hid_get_feature_report(void *device, unsigned char *data, size_t length) { return -1; }
+    void hid_close(void *device) {}
+    int hid_get_manufacturer_string(void *device, wchar_t *string, size_t maxlen) { return -1; }
+    int hid_get_product_string(void *device, wchar_t *string, size_t maxlen) { return -1; }
+    int hid_get_serial_number_string(void *device, wchar_t *string, size_t maxlen) { return -1; }
+    int hid_get_indexed_string(void *device, int string_index, wchar_t *string, size_t maxlen) { return -1; }
+    const wchar_t* hid_error(void *device) { return NULL; }
+}
+EOF
+fi
 
 # Patch SDL_egl.h with full suite of EGL 1.5 / KHR extension typedefs
 if [ -f "/tmp/sdl_src/include/SDL_egl.h" ]; then
@@ -168,7 +199,7 @@ cat << 'EOF' > /tmp/sdl_src/Application.mk
 APP_ABI := armeabi-v7a
 APP_PLATFORM := android-19
 APP_STL := stlport_static
-APP_CFLAGS := -w -Wno-error -DSDL_AUDIO_DRIVER_AAUDIO=0 -DSDL_AUDIO_DRIVER_OPENSLES=0
+APP_CFLAGS := -w -Wno-error -DSDL_AUDIO_DRIVER_AAUDIO=0 -DSDL_AUDIO_DRIVER_OPENSLES=0 -DSDL_HIDAPI_DISABLED=1
 EOF
 
 # Run ndk-build
