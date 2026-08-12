@@ -153,36 +153,32 @@ echo 'LOCAL_SRC_FILES += src/cpuinfo/cpu-features.c' >> /tmp/sdl_src/Android.mk
 # Strip warning flags to prevent GCC 4.9 stop-on-warning errors
 sed -i '/-W/d' /tmp/sdl_src/Android.mk
 
-# Blank out all existing native OpenSL ES and AAudio driver files
+# Blank out existing native OpenSL ES and AAudio driver files
 find /tmp/sdl_src/src/audio -type f \( -iname "*opensles*.c" -o -iname "*aaudio*.c" \) -exec sh -c 'echo "" > "$1"' _ {} \;
 
-# Overwrite SDL_openslesaudio.c directly with unconditional stub implementations
-mkdir -p /tmp/sdl_src/src/audio/opensles
-cat << 'EOF' > /tmp/sdl_src/src/audio/opensles/SDL_openslesaudio.c
-#include "../../SDL_internal.h"
-#include "SDL_audio.h"
-#include "../SDL_sysaudio.h"
+# Inject stubs into SDL_audio.c right after header includes
+python3 -c '
+with open("/tmp/sdl_src/src/audio/SDL_audio.c", "r") as f:
+    content = f.read()
 
-static int STUB_AudioInit(SDL_AudioDriverImpl *impl) {
-    (void)impl;
-    return 0;
-}
-
-AudioBootStrap opensLES_bootstrap = {
-    "opensles", "OpenSL ES Dummy", STUB_AudioInit, 0
-};
-
+stubs = """
+static int STUB_AudioInit(SDL_AudioDriverImpl *impl) { (void)impl; return 0; }
+AudioBootStrap opensLES_bootstrap = { "opensles", "OpenSL ES Dummy", STUB_AudioInit, 0 };
 void opensLES_PauseDevices(void) {}
 void opensLES_ResumeDevices(void) {}
-
-AudioBootStrap aaudio_bootstrap = {
-    "aaudio", "AAudio Dummy", STUB_AudioInit, 0
-};
-
+AudioBootStrap aaudio_bootstrap = { "aaudio", "AAudio Dummy", STUB_AudioInit, 0 };
 void aaudio_PauseDevices(void) {}
 void aaudio_ResumeDevices(void) {}
 void aaudio_DetectBrokenPlayState(void) {}
-EOF
+"""
+
+target = "#include \"SDL_sysaudio.h\""
+if target in content:
+    content = content.replace(target, target + "\n" + stubs)
+
+with open("/tmp/sdl_src/src/audio/SDL_audio.c", "w") as f:
+    f.write(content)
+'
 
 # Stub out hid.cpp to bypass GCC 4.9 template parsing bug in hidapi
 if [ -f "/tmp/sdl_src/src/hidapi/android/hid.cpp" ]; then
