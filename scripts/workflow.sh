@@ -247,9 +247,15 @@ if [ -n "$LAUNCHER_DIR" ] && [ -d "$LAUNCHER_DIR" ]; then
         fi
     fi
 
+    # Fix Java source/target options from legacy 1.6 to 1.7 for modern javac
+    sed -i 's/1\.6/1\.7/g' project.properties 2>/dev/null || true
+    sed -i 's/1\.6/1\.7/g' build.xml 2>/dev/null || true
+    echo "java.source=1.7" >> ant.properties
+    echo "java.target=1.7" >> ant.properties
+
     # Build the APK
     if [ -f "build.xml" ]; then
-        ant debug
+        ant debug -Dant.build.javac.source=1.7 -Dant.build.javac.target=1.7 -Djava.source=1.7 -Djava.target=1.7
     elif [ -f "gradlew" ]; then
         chmod +x gradlew
         ./gradlew assembleDebug
