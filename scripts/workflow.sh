@@ -139,57 +139,16 @@ echo "Building SDL2 natively using NDK..."
 rm -rf /tmp/sdl_src
 git clone --depth 1 -b release-2.0.22 https://github.com/libsdl-org/SDL.git /tmp/sdl_src
 
-# Disable external cpufeatures module import
-sed -i 's/$(call import-module,android\/cpufeatures)/# disabled cpufeatures import/g' /tmp/sdl_src/Android.mk
-
-# Embed NDK cpu-features into SDL2 build
-cp "$NDK_HOME/sources/android/cpufeatures/cpu-features.h" /tmp/sdl_src/include/
-cp "$NDK_HOME/sources/android/cpufeatures/cpu-features.c" /tmp/sdl_src/src/cpuinfo/
-sed -i '/include $(BUILD_SHARED_LIBRARY)/i LOCAL_SRC_FILES += src/cpuinfo/cpu-features.c' /tmp/sdl_src/Android.mk
-
-# Strip warning flags
+# Disable warnings
 sed -i '/-W/d' /tmp/sdl_src/Android.mk
 
-# Dynamically locate and overwrite all OpenSL ES driver files with safe stubs
-for file in $(find /tmp/sdl_src/src/audio -type f -iname "*opensles*.c"); do
-    cat << 'EOF' > "$file"
-#include "SDL.h"
-#include "../SDL_sysaudio.h"
-
-static int STUB_AudioInit(SDL_AudioDriverImpl *impl) {
-    (void)impl;
-    return 0;
-}
-
-AudioBootStrap opensLES_bootstrap = {
-    "opensles", "OpenSL ES Stub", STUB_AudioInit, 0
-};
-
-void opensLES_PauseDevices(void) {}
-void opensLES_ResumeDevices(void) {}
-EOF
-done
-
-# Dynamically locate and overwrite all AAudio driver files with safe stubs
-for file in $(find /tmp/sdl_src/src/audio -type f -iname "*aaudio*.c"); do
-    cat << 'EOF' > "$file"
-#include "SDL.h"
-#include "../SDL_sysaudio.h"
-
-static int STUB_AudioInit(SDL_AudioDriverImpl *impl) {
-    (void)impl;
-    return 0;
-}
-
-AudioBootStrap aaudio_bootstrap = {
-    "aaudio", "AAudio Stub", STUB_AudioInit, 0
-};
-
-void aaudio_PauseDevices(void) {}
-void aaudio_ResumeDevices(void) {}
-void aaudio_DetectBrokenPlayState(void) {}
-EOF
-done
+# Completely disable OpenSL ES and AAudio in SDL2 configuration
+CONF_FILE="/tmp/sdl_src/include/SDL_config_android.h"
+if [ -f "$CONF_FILE" ]; then
+    sed -i 's/#define SDL_AUDIO_DRIVER_OPENSLES 1/#define SDL_AUDIO_DRIVER_OPENSLES 0/' "$CONF_FILE"
+    sed -i 's/#define SDL_AUDIO_DRIVER_AAUDIO 1/#define SDL_AUDIO_DRIVER_AAUDIO 0/' "$CONF_FILE"
+    sed -i 's/#define SDL_AUDIO_DRIVER_DUMMY 0/#define SDL_AUDIO_DRIVER_DUMMY 1/' "$CONF_FILE"
+fi
 
 # Stub out hid.cpp to bypass GCC 4.9 template parsing bug in hidapi
 if [ -f "/tmp/sdl_src/src/hidapi/android/hid.cpp" ]; then
