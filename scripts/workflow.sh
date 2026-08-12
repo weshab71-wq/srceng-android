@@ -159,14 +159,16 @@ find /tmp/sdl_src -name "SDL_config*.h" -exec sed -i 's/#define SDL_AUDIO_DRIVER
 find /tmp/sdl_src -name "SDL_config*.h" -exec sed -i 's/#define SDL_AUDIO_DRIVER_ANDROID 0/#define SDL_AUDIO_DRIVER_ANDROID 1/g' {} +
 find /tmp/sdl_src -name "SDL_config*.h" -exec sed -i 's/#define SDL_JOYSTICK_HIDAPI 1/#define SDL_JOYSTICK_HIDAPI 0/g' {} +
 
-# Case-insensitive dynamic stubs for OpenSL ES
-find /tmp/sdl_src/src/audio -type f -iname "SDL_opensles.h" -exec bash -c 'cat << "EOF" > "$1"
+# Clean case-insensitive loop to stub OpenSL ES files
+for f in $(find /tmp/sdl_src/src/audio -type f -iname "*opensles*"); do
+    if [[ "$f" == *.h ]]; then
+        cat << 'EOF' > "$f"
 #ifndef SDL_opensles_h_
 #define SDL_opensles_h_
 #endif
-EOF' _ {} \;
-
-find /tmp/sdl_src/src/audio -type f -iname "SDL_opensles.c" -exec bash -c 'cat << "EOF" > "$1"
+EOF
+    elif [[ "$f" == *.c ]]; then
+        cat << 'EOF' > "$f"
 #include "../../SDL_internal.h"
 #include "SDL_audio.h"
 #include "../SDL_sysaudio.h"
@@ -179,16 +181,20 @@ AudioBootStrap opensLES_bootstrap = {
 
 void opensLES_PauseDevices(void) {}
 void opensLES_ResumeDevices(void) {}
-EOF' _ {} \;
+EOF
+    fi
+done
 
-# Case-insensitive dynamic stubs for AAudio
-find /tmp/sdl_src/src/audio -type f -iname "SDL_aaudio.h" -exec bash -c 'cat << "EOF" > "$1"
+# Clean case-insensitive loop to stub AAudio files
+for f in $(find /tmp/sdl_src/src/audio -type f -iname "*aaudio*"); do
+    if [[ "$f" == *.h ]]; then
+        cat << 'EOF' > "$f"
 #ifndef SDL_aaudio_h_
 #define SDL_aaudio_h_
 #endif
-EOF' _ {} \;
-
-find /tmp/sdl_src/src/audio -type f -iname "SDL_aaudio.c" -exec bash -c 'cat << "EOF" > "$1"
+EOF
+    elif [[ "$f" == *.c ]]; then
+        cat << 'EOF' > "$f"
 #include "../../SDL_internal.h"
 #include "SDL_audio.h"
 #include "../SDL_sysaudio.h"
@@ -202,7 +208,9 @@ AudioBootStrap aaudio_bootstrap = {
 void aaudio_PauseDevices(void) {}
 void aaudio_ResumeDevices(void) {}
 void aaudio_DetectBrokenPlayState(void) {}
-EOF' _ {} \;
+EOF
+    fi
+done
 
 # Stub out hid.cpp to bypass GCC 4.9 template parsing bug in hidapi
 if [ -f "/tmp/sdl_src/src/hidapi/android/hid.cpp" ]; then
