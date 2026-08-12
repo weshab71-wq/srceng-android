@@ -68,7 +68,6 @@ mkdir -p /tmp/libjpeg_src
 git clone --depth 1 -b 2.0.6 https://github.com/libjpeg-turbo/libjpeg-turbo.git /tmp/libjpeg_src
 cd /tmp/libjpeg_src
 
-# Public Configuration Header
 cat << 'EOF' > jconfig.h
 #ifndef JCONFIG_H
 #define JCONFIG_H
@@ -88,7 +87,6 @@ cat << 'EOF' > jconfig.h
 #endif
 EOF
 
-# Internal Configuration Header
 cat << 'EOF' > jconfigint.h
 #ifndef JCONFIGINT_H
 #define JCONFIGINT_H
@@ -105,7 +103,6 @@ cat << 'EOF' > jconfigint.h
 #endif
 EOF
 
-# Explicit C source list for libjpeg
 cat << 'EOF' > Android.mk
 LOCAL_PATH := $(call my-dir)
 include $(CLEAR_VARS)
@@ -116,7 +113,7 @@ LOCAL_SRC_FILES := \
     jcinit.c jcmainct.c jcmarker.c jcmaster.c jcomapi.c jcparam.c \
     jcphuff.c jcsample.c jctrans.c jdapimin.c jdapistd.c jdatadst.c \
     jdatasrc.c jdcoefct.c jdcolor.c jddctmgr.c jdhuff.c jdmainct.c \
-    jdmarker.c jdmaster.c jdmerge.c jdpostct.c jdsample.c jdtrans.c \
+    jdmarker.c jdmerge.c jdpostct.c jdsample.c jdtrans.c \
     jerror.c jfdctflt.c jfdctfst.c jfdctint.c jidctflt.c jidctfst.c \
     jidctint.c jidctred.c jmemmgr.c jmemnobs.c jquant1.c jquant2.c \
     jutils.c jsimd_none.c
@@ -142,43 +139,49 @@ echo "Building SDL2 natively using NDK..."
 rm -rf /tmp/sdl_src
 git clone --depth 1 -b release-2.0.22 https://github.com/libsdl-org/SDL.git /tmp/sdl_src
 
-# Disable external cpufeatures module call
+# Disable external cpufeatures module import
 sed -i 's/$(call import-module,android\/cpufeatures)/# disabled cpufeatures import/g' /tmp/sdl_src/Android.mk
 
-# Embed NDK's cpu-features source and header directly into SDL2 build
+# Embed NDK cpu-features into SDL2 build
 cp "$NDK_HOME/sources/android/cpufeatures/cpu-features.h" /tmp/sdl_src/include/
 cp "$NDK_HOME/sources/android/cpufeatures/cpu-features.c" /tmp/sdl_src/src/cpuinfo/
-echo 'LOCAL_SRC_FILES += src/cpuinfo/cpu-features.c' >> /tmp/sdl_src/Android.mk
 
-# Strip warning flags to prevent GCC 4.9 stop-on-warning errors
+# Strip warning flags
 sed -i '/-W/d' /tmp/sdl_src/Android.mk
 
-# Blank out existing native OpenSL ES and AAudio driver files
+# Blank out existing native OpenSL ES and AAudio source files
 find /tmp/sdl_src/src/audio -type f \( -iname "*opensles*.c" -o -iname "*aaudio*.c" \) -exec sh -c 'echo "" > "$1"' _ {} \;
 
-# Inject stubs into SDL_audio.c right after header includes
-python3 -c '
-with open("/tmp/sdl_src/src/audio/SDL_audio.c", "r") as f:
-    content = f.read()
+# Create stub C file containing missing symbols
+mkdir -p /tmp/sdl_src/src/audio/stubs
+cat << 'EOF' > /tmp/sdl_src/src/audio/stubs/sdl_audio_stubs.c
+#include "../../SDL_internal.h"
+#include "SDL_audio.h"
+#include "../SDL_sysaudio.h"
 
-stubs = """
-static int STUB_AudioInit(SDL_AudioDriverImpl *impl) { (void)impl; return 0; }
-AudioBootStrap opensLES_bootstrap = { "opensles", "OpenSL ES Dummy", STUB_AudioInit, 0 };
+static int STUB_AudioInit(SDL_AudioDriverImpl *impl) {
+    (void)impl;
+    return 0;
+}
+
+AudioBootStrap opensLES_bootstrap = {
+    "opensles", "OpenSL ES Dummy", STUB_AudioInit, 0
+};
+
 void opensLES_PauseDevices(void) {}
 void opensLES_ResumeDevices(void) {}
-AudioBootStrap aaudio_bootstrap = { "aaudio", "AAudio Dummy", STUB_AudioInit, 0 };
+
+AudioBootStrap aaudio_bootstrap = {
+    "aaudio", "AAudio Dummy", STUB_AudioInit, 0
+};
+
 void aaudio_PauseDevices(void) {}
 void aaudio_ResumeDevices(void) {}
 void aaudio_DetectBrokenPlayState(void) {}
-"""
+EOF
 
-target = "#include \"SDL_sysaudio.h\""
-if target in content:
-    content = content.replace(target, target + "\n" + stubs)
-
-with open("/tmp/sdl_src/src/audio/SDL_audio.c", "w") as f:
-    f.write(content)
-'
+# Explicitly insert stub source and cpu-features BEFORE include $(BUILD_SHARED_LIBRARY)
+sed -i '/include $(BUILD_SHARED_LIBRARY)/i LOCAL_SRC_FILES += src/cpuinfo/cpu-features.c src/audio/stubs/sdl_audio_stubs.c' /tmp/sdl_src/Android.mk
 
 # Stub out hid.cpp to bypass GCC 4.9 template parsing bug in hidapi
 if [ -f "/tmp/sdl_src/src/hidapi/android/hid.cpp" ]; then
