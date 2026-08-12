@@ -152,38 +152,13 @@ echo 'LOCAL_SRC_FILES += src/cpuinfo/cpu-features.c' >> /tmp/sdl_src/Android.mk
 # Strip warning flags to prevent GCC 4.9 errors
 sed -i '/-W/d' /tmp/sdl_src/Android.mk
 
-# Write dedicated dummy OpenSL ES source file
-cat << 'EOF' > /tmp/sdl_src/src/audio/opensles/SDL_opensles.c
-#include "../../SDL_internal.h"
-#include "SDL_audio.h"
-#include "../SDL_sysaudio.h"
+# Force OpenSL ES ON and AAudio/HIDAPI OFF across all SDL configuration headers
+find /tmp/sdl_src -name "SDL_config*.h" -exec sed -i 's/#define SDL_AUDIO_DRIVER_OPENSLES 0/#define SDL_AUDIO_DRIVER_OPENSLES 1/g' {} +
+find /tmp/sdl_src -name "SDL_config*.h" -exec sed -i 's/#define SDL_AUDIO_DRIVER_AAUDIO 1/#define SDL_AUDIO_DRIVER_AAUDIO 0/g' {} +
+find /tmp/sdl_src -name "SDL_config*.h" -exec sed -i 's/#define SDL_JOYSTICK_HIDAPI 1/#define SDL_JOYSTICK_HIDAPI 0/g' {} +
 
-static int OPENSLES_Init(SDL_AudioDriverImpl *impl) { (void)impl; return 0; }
-
-AudioBootStrap opensLES_bootstrap = {
-    "opensles", "OpenSL ES Dummy", OPENSLES_Init, 0
-};
-
-void opensLES_PauseDevices(void) {}
-void opensLES_ResumeDevices(void) {}
-EOF
-
-# Write dedicated dummy AAudio source file
-cat << 'EOF' > /tmp/sdl_src/src/audio/aaudio/SDL_aaudio.c
-#include "../../SDL_internal.h"
-#include "SDL_audio.h"
-#include "../SDL_sysaudio.h"
-
-static int AAUDIO_Init(SDL_AudioDriverImpl *impl) { (void)impl; return 0; }
-
-AudioBootStrap aaudio_bootstrap = {
-    "aaudio", "AAudio Dummy", AAUDIO_Init, 0
-};
-
-void aaudio_PauseDevices(void) {}
-void aaudio_ResumeDevices(void) {}
-void aaudio_DetectBrokenPlayState(void) {}
-EOF
+# Link NDK native OpenSL ES library explicitly
+echo 'LOCAL_LDLIBS += -lOpenSLES' >> /tmp/sdl_src/Android.mk
 
 # Stub out hid.cpp to bypass GCC 4.9 template parsing bug in hidapi/android/hid.cpp
 if [ -f "/tmp/sdl_src/src/hidapi/android/hid.cpp" ]; then
@@ -229,7 +204,7 @@ cat << 'EOF' > /tmp/sdl_src/Application.mk
 APP_ABI := armeabi-v7a
 APP_PLATFORM := android-19
 APP_STL := stlport_static
-APP_CFLAGS := -w -Wno-error -DSDL_HIDAPI_DISABLED=1
+APP_CFLAGS := -w -Wno-error -DSDL_AUDIO_DRIVER_OPENSLES=1 -DSDL_AUDIO_DRIVER_AAUDIO=0 -DSDL_HIDAPI_DISABLED=1
 EOF
 
 # Run ndk-build
