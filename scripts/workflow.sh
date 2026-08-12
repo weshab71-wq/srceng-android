@@ -157,10 +157,10 @@ find /tmp/sdl_src -name "SDL_config*.h" -exec sed -i 's/#define SDL_AUDIO_DRIVER
 find /tmp/sdl_src -name "SDL_config*.h" -exec sed -i 's/#define SDL_AUDIO_DRIVER_OPENSLES 1/#define SDL_AUDIO_DRIVER_OPENSLES 0/g' {} +
 find /tmp/sdl_src -name "SDL_config*.h" -exec sed -i 's/#define SDL_JOYSTICK_HIDAPI 1/#define SDL_JOYSTICK_HIDAPI 0/g' {} +
 
-# Populate OpenSL ES source files with valid AudioBootStrap and event stubs
+# Populate OpenSL ES source files with relative header paths and valid AudioBootStrap stubs
 find /tmp/sdl_src/src/audio -type f -iname "*opensl*.c" -exec sh -c 'cat << "EOF" > "$1"
-#include "SDL_internal.h"
-#include "SDL_sysaudio.h"
+#include "../../SDL_internal.h"
+#include "../SDL_sysaudio.h"
 
 static int DUMMY_OpenSL_Init(SDL_AudioDriverImpl *impl) { (void)impl; return 0; }
 
@@ -172,10 +172,10 @@ void opensLES_ResumeDevices(void) {}
 void opensLES_DetectBrokenPlayState(void) {}
 EOF' _ {} \;
 
-# Populate AAudio source files with valid AudioBootStrap and event stubs
+# Populate AAudio source files with relative header paths and valid AudioBootStrap stubs
 find /tmp/sdl_src/src/audio -type f -iname "*aaudio*.c" -exec sh -c 'cat << "EOF" > "$1"
-#include "SDL_internal.h"
-#include "SDL_sysaudio.h"
+#include "../../SDL_internal.h"
+#include "../SDL_sysaudio.h"
 
 static int DUMMY_AAudio_Init(SDL_AudioDriverImpl *impl) { (void)impl; return 0; }
 
