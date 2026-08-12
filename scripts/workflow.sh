@@ -153,67 +153,26 @@ echo 'LOCAL_SRC_FILES += src/cpuinfo/cpu-features.c' >> /tmp/sdl_src/Android.mk
 # Strip warning flags to prevent GCC 4.9 stop-on-warning errors
 sed -i '/-W/d' /tmp/sdl_src/Android.mk
 
-# Ensure drivers are enabled in configuration headers so symbols match calls
-find /tmp/sdl_src -name "SDL_config*.h" -exec sed -i 's/#define SDL_AUDIO_DRIVER_OPENSLES 0/#define SDL_AUDIO_DRIVER_OPENSLES 1/g' {} +
-find /tmp/sdl_src -name "SDL_config*.h" -exec sed -i 's/#define SDL_AUDIO_DRIVER_AAUDIO 0/#define SDL_AUDIO_DRIVER_AAUDIO 1/g' {} +
-find /tmp/sdl_src -name "SDL_config*.h" -exec sed -i 's/#define SDL_JOYSTICK_HIDAPI 1/#define SDL_JOYSTICK_HIDAPI 0/g' {} +
-
-# Clean case-insensitive loop to stub OpenSL ES files
-for f in $(find /tmp/sdl_src/src/audio -type f -iname "*opensles*"); do
-    if [[ "$f" == *.h ]]; then
-        cat << 'EOF' > "$f"
-#ifndef SDL_opensles_h_
-#define SDL_opensles_h_
-#endif
-EOF
-    elif [[ "$f" == *.c ]]; then
-        cat << 'EOF' > "$f"
-#include "../../SDL_internal.h"
-#include "SDL_audio.h"
-#include "../SDL_sysaudio.h"
-
-static int OPENSLES_Init(SDL_AudioDriverImpl *impl) { (void)impl; return 0; }
-
-AudioBootStrap opensLES_bootstrap = {
-    "opensles", "OpenSL ES Dummy", OPENSLES_Init, 0
-};
-
-void opensLES_PauseDevices(void) {}
-void opensLES_ResumeDevices(void) {}
-EOF
-    fi
+# Blank out all OpenSL ES and AAudio driver files so they don't produce conflicting definitions
+for f in $(find /tmp/sdl_src/src/audio -type f \( -iname "*opensles*" -o -iname "*aaudio*" \)); do
+    echo "/* Blanked out for compatibility */" > "$f"
 done
 
-# Clean case-insensitive loop to stub AAudio files
-for f in $(find /tmp/sdl_src/src/audio -type f -iname "*aaudio*"); do
-    if [[ "$f" == *.h ]]; then
-        cat << 'EOF' > "$f"
-#ifndef SDL_aaudio_h_
-#define SDL_aaudio_h_
-#endif
-EOF
-    elif [[ "$f" == *.c ]]; then
-        cat << 'EOF' > "$f"
-#include "../../SDL_internal.h"
-#include "SDL_audio.h"
-#include "../SDL_sysaudio.h"
+# Inject dummy symbol definitions directly into SDL_audio.c
+cat << 'EOF' >> /tmp/sdl_src/src/audio/SDL_audio.c
 
-static int AAUDIO_Init(SDL_AudioDriverImpl *impl) { (void)impl; return 0; }
+/* OpenSL ES & AAudio Linker Stubs */
+static int STUB_OPENSLES_Init(SDL_AudioDriverImpl *impl) { (void)impl; return 0; }
+AudioBootStrap opensLES_bootstrap = { "opensles", "OpenSL ES Dummy", STUB_OPENSLES_Init, 0 };
+void opensLES_PauseDevices(void) {}
+void opensLES_ResumeDevices(void) {}
 
-AudioBootStrap aaudio_bootstrap = {
-    "aaudio", "AAudio Dummy", AAUDIO_Init, 0
-};
-
+static int STUB_AAUDIO_Init(SDL_AudioDriverImpl *impl) { (void)impl; return 0; }
+AudioBootStrap aaudio_bootstrap = { "aaudio", "AAudio Dummy", STUB_AAUDIO_Init, 0 };
 void aaudio_PauseDevices(void) {}
 void aaudio_ResumeDevices(void) {}
 void aaudio_DetectBrokenPlayState(void) {}
 EOF
-    fi
-done
-
-# Explicitly force-add the stubbed driver files into Android.mk build list
-echo 'LOCAL_SRC_FILES += src/audio/opensLES/SDL_opensLES.c' >> /tmp/sdl_src/Android.mk
-echo 'LOCAL_SRC_FILES += src/audio/aaudio/SDL_aaudio.c' >> /tmp/sdl_src/Android.mk
 
 # Stub out hid.cpp to bypass GCC 4.9 template parsing bug in hidapi
 if [ -f "/tmp/sdl_src/src/hidapi/android/hid.cpp" ]; then
@@ -259,7 +218,7 @@ cat << 'EOF' > /tmp/sdl_src/Application.mk
 APP_ABI := armeabi-v7a
 APP_PLATFORM := android-19
 APP_STL := stlport_static
-APP_CFLAGS := -w -Wno-error -DSDL_HIDAPI_DISABLED=1 -DSDL_AUDIO_DRIVER_OPENSLES=1 -DSDL_AUDIO_DRIVER_AAUDIO=1
+APP_CFLAGS := -w -Wno-error -DSDL_HIDAPI_DISABLED=1
 EOF
 
 # Build SDL2
