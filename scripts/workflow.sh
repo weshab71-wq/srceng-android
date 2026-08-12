@@ -150,7 +150,7 @@ if [ -f "$CONF_FILE" ]; then
     sed -i 's/#define SDL_AUDIO_DRIVER_DUMMY 0/#define SDL_AUDIO_DRIVER_DUMMY 1/' "$CONF_FILE"
 fi
 
-# Replace OpenSL ES driver files with safe stubs
+# Locate OpenSL ES directory
 OPENSLES_DIR=""
 for d in /tmp/sdl_src/src/audio/*; do
     if [ -d "$d" ]; then
@@ -162,9 +162,13 @@ for d in /tmp/sdl_src/src/audio/*; do
 done
 
 if [ -n "$OPENSLES_DIR" ]; then
+    find "$OPENSLES_DIR" -type f -exec sh -c 'echo "/* empty */" > "$1"' _ {} \;
+
     cat << 'EOF' > "$OPENSLES_DIR/SDL_openslES.h"
 #ifndef SDL_openslES_h_
 #define SDL_openslES_h_
+#include "SDL_config.h"
+#include "SDL_audio.h"
 #include "../SDL_sysaudio.h"
 void opensLES_PauseDevices(void);
 void opensLES_ResumeDevices(void);
@@ -173,6 +177,8 @@ extern AudioBootStrap opensLES_bootstrap;
 EOF
 
     cat << 'EOF' > "$OPENSLES_DIR/SDL_openslES.c"
+#include "SDL_config.h"
+#include "SDL_audio.h"
 #include "../SDL_sysaudio.h"
 #include "SDL_openslES.h"
 
@@ -187,7 +193,7 @@ AudioBootStrap opensLES_bootstrap = {
 EOF
 fi
 
-# Replace AAudio driver files with safe stubs
+# Locate AAudio directory
 AAUDIO_DIR=""
 for d in /tmp/sdl_src/src/audio/*; do
     if [ -d "$d" ]; then
@@ -199,9 +205,13 @@ for d in /tmp/sdl_src/src/audio/*; do
 done
 
 if [ -n "$AAUDIO_DIR" ]; then
+    find "$AAUDIO_DIR" -type f -exec sh -c 'echo "/* empty */" > "$1"' _ {} \;
+
     cat << 'EOF' > "$AAUDIO_DIR/SDL_aaudio.h"
 #ifndef SDL_aaudio_h_
 #define SDL_aaudio_h_
+#include "SDL_config.h"
+#include "SDL_audio.h"
 #include "../SDL_sysaudio.h"
 void aaudio_PauseDevices(void);
 void aaudio_ResumeDevices(void);
@@ -211,6 +221,8 @@ extern AudioBootStrap aaudio_bootstrap;
 EOF
 
     cat << 'EOF' > "$AAUDIO_DIR/SDL_aaudio.c"
+#include "SDL_config.h"
+#include "SDL_audio.h"
 #include "../SDL_sysaudio.h"
 #include "SDL_aaudio.h"
 
