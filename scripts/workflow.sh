@@ -142,12 +142,12 @@ git clone --depth 1 -b release-2.0.22 https://github.com/libsdl-org/SDL.git /tmp
 # Disable warnings
 sed -i '/-W/d' /tmp/sdl_src/Android.mk
 
-# Completely remove AAudio directory so NDK build cannot find or compile it
+# Completely remove AAudio directory
 rm -rf /tmp/sdl_src/src/audio/aaudio
 
-# Force-define SLDataFormat_PCM_EX structure safely for OpenSL ES on old NDKs
+# Patch SDL_openslES.c to bypass the extended PCM format block completely
 if [ -f "/tmp/sdl_src/src/audio/openslES/SDL_openslES.c" ]; then
-    sed -i '1s/^/#include <SLES\/OpenSLES_AndroidConfiguration.h>\n#undef SL_DATAFORMAT_PCM_EX\n#define SL_DATAFORMAT_PCM_EX 0x00000004\n#undef SLDataFormat_PCM_EX\ntypedef struct SLDataFormat_PCM_EX_ {\n    SLuint32 formatType;\n    SLuint32 numChannels;\n    SLuint32 samplesPerSec;\n    SLuint32 bitsPerSample;\n    SLuint32 containerSize;\n    SLuint32 channelMask;\n    SLuint32 endianness;\n    SLuint32 representation;\n} SLDataFormat_PCM_EX;\n#undef SL_ANDROID_PCM_REPRESENTATION_FLOAT\n#define SL_ANDROID_PCM_REPRESENTATION_SIGNED_INT ((SLuint32) 0x00000001)\n#define SL_ANDROID_PCM_REPRESENTATION_UNSIGNED_INT ((SLuint32) 0x00000002)\n#define SL_ANDROID_PCM_REPRESENTATION_FLOAT ((SLuint32) 0x00000003)\n/' /tmp/sdl_src/src/audio/openslES/SDL_openslES.c
+    sed -i 's/defined(SL_ANDROID_KEY_PCM_FORMAT_EX)/0/' /tmp/sdl_src/src/audio/openslES/SDL_openslES.c
 fi
 
 # Stub out hid.cpp to bypass GCC 4.9 template parsing bug in hidapi
