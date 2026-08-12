@@ -153,20 +153,20 @@ echo 'LOCAL_SRC_FILES += src/cpuinfo/cpu-features.c' >> /tmp/sdl_src/Android.mk
 # Strip warning flags to prevent GCC 4.9 stop-on-warning errors
 sed -i '/-W/d' /tmp/sdl_src/Android.mk
 
-# Enable Android JNI Audio & Disable problematic AAudio / OpenSL ES / HIDAPI drivers
+# Enable Android JNI Audio & Disable problematic drivers across config headers
 find /tmp/sdl_src -name "SDL_config*.h" -exec sed -i 's/#define SDL_AUDIO_DRIVER_OPENSLES 1/#define SDL_AUDIO_DRIVER_OPENSLES 0/g' {} +
 find /tmp/sdl_src -name "SDL_config*.h" -exec sed -i 's/#define SDL_AUDIO_DRIVER_AAUDIO 1/#define SDL_AUDIO_DRIVER_AAUDIO 0/g' {} +
 find /tmp/sdl_src -name "SDL_config*.h" -exec sed -i 's/#define SDL_AUDIO_DRIVER_ANDROID 0/#define SDL_AUDIO_DRIVER_ANDROID 1/g' {} +
 find /tmp/sdl_src -name "SDL_config*.h" -exec sed -i 's/#define SDL_JOYSTICK_HIDAPI 1/#define SDL_JOYSTICK_HIDAPI 0/g' {} +
 
-# Stub out OpenSL ES driver sources completely
-cat << 'EOF' > /tmp/sdl_src/src/audio/opensles/SDL_opensles.h
+# Case-insensitive dynamic stubs for OpenSL ES
+find /tmp/sdl_src/src/audio -type f -iname "SDL_opensles.h" -exec bash -c 'cat << "EOF" > "$1"
 #ifndef SDL_opensles_h_
 #define SDL_opensles_h_
 #endif
-EOF
+EOF' _ {} \;
 
-cat << 'EOF' > /tmp/sdl_src/src/audio/opensles/SDL_opensles.c
+find /tmp/sdl_src/src/audio -type f -iname "SDL_opensles.c" -exec bash -c 'cat << "EOF" > "$1"
 #include "../../SDL_internal.h"
 #include "SDL_audio.h"
 #include "../SDL_sysaudio.h"
@@ -179,16 +179,16 @@ AudioBootStrap opensLES_bootstrap = {
 
 void opensLES_PauseDevices(void) {}
 void opensLES_ResumeDevices(void) {}
-EOF
+EOF' _ {} \;
 
-# Stub out AAudio driver sources completely
-cat << 'EOF' > /tmp/sdl_src/src/audio/aaudio/SDL_aaudio.h
+# Case-insensitive dynamic stubs for AAudio
+find /tmp/sdl_src/src/audio -type f -iname "SDL_aaudio.h" -exec bash -c 'cat << "EOF" > "$1"
 #ifndef SDL_aaudio_h_
 #define SDL_aaudio_h_
 #endif
-EOF
+EOF' _ {} \;
 
-cat << 'EOF' > /tmp/sdl_src/src/audio/aaudio/SDL_aaudio.c
+find /tmp/sdl_src/src/audio -type f -iname "SDL_aaudio.c" -exec bash -c 'cat << "EOF" > "$1"
 #include "../../SDL_internal.h"
 #include "SDL_audio.h"
 #include "../SDL_sysaudio.h"
@@ -202,7 +202,7 @@ AudioBootStrap aaudio_bootstrap = {
 void aaudio_PauseDevices(void) {}
 void aaudio_ResumeDevices(void) {}
 void aaudio_DetectBrokenPlayState(void) {}
-EOF
+EOF' _ {} \;
 
 # Stub out hid.cpp to bypass GCC 4.9 template parsing bug in hidapi
 if [ -f "/tmp/sdl_src/src/hidapi/android/hid.cpp" ]; then
