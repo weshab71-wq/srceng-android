@@ -156,7 +156,6 @@ void aaudio_ResumeDevices(void) {}
 void aaudio_DetectBrokenPlayState(void) {}
 EOF
 
-# Append the stub source to Android.mk so it compiles cleanly
 echo "LOCAL_SRC_FILES += src/audio/openslES/SDL_openslES_stub.c" >> /tmp/sdl_src/Android.mk
 
 # Stub out hid.cpp to bypass GCC 4.9 template parsing bug in hidapi
@@ -188,17 +187,14 @@ extern "C" {
 EOF
 fi
 
-# Patch SDL_androidvideo.c with fallback defines for AHardwareBuffer formats
 if [ -f "/tmp/sdl_src/src/video/android/SDL_androidvideo.c" ]; then
     sed -i '1s/^/#ifndef AHARDWAREBUFFER_FORMAT_R8G8B8A8_UNORM\n#define AHARDWAREBUFFER_FORMAT_R8G8B8A8_UNORM 1\n#endif\n#ifndef AHARDWAREBUFFER_FORMAT_R8G8B8X8_UNORM\n#define AHARDWAREBUFFER_FORMAT_R8G8B8X8_UNORM 2\n#endif\n#ifndef AHARDWAREBUFFER_FORMAT_R8G8B8_UNORM\n#define AHARDWAREBUFFER_FORMAT_R8G8B8_UNORM 3\n#endif\n#ifndef AHARDWAREBUFFER_FORMAT_R5G6B5_UNORM\n#define AHARDWAREBUFFER_FORMAT_R5G6B5_UNORM 4\n#endif\n/' /tmp/sdl_src/src/video/android/SDL_androidvideo.c
 fi
 
-# Patch SDL_egl.h with full suite of EGL 1.5 / KHR extension typedefs
 if [ -f "/tmp/sdl_src/include/SDL_egl.h" ]; then
     sed -i '1s/^/#include <stdint.h>\n#include <EGL\/egl.h>\n#include <EGL\/eglplatform.h>\ntypedef void *EGLImage;\ntypedef void *EGLImageKHR;\ntypedef void *EGLSync;\ntypedef void *EGLSyncKHR;\ntypedef void *EGLStreamKHR;\ntypedef intptr_t EGLAttrib;\ntypedef intptr_t EGLAttribKHR;\ntypedef uint64_t EGLTime;\ntypedef uint64_t EGLTimeKHR;\ntypedef uint64_t EGLGLuint64KHR;\ntypedef int EGLNativeFileDescriptorKHR;\n/' /tmp/sdl_src/include/SDL_egl.h
 fi
 
-# Application configuration
 cat << 'EOF' > /tmp/sdl_src/Application.mk
 APP_ABI := armeabi-v7a
 APP_PLATFORM := android-19
@@ -206,12 +202,25 @@ APP_STL := stlport_static
 APP_CFLAGS := -w -Wno-error -DSDL_HIDAPI_DISABLED=1
 EOF
 
-# Build SDL2
 NDK_MODULE_PATH="$NDK_HOME/sources" "$NDK_HOME/ndk-build" \
     NDK_PROJECT_PATH=/tmp/sdl_src \
     APP_BUILD_SCRIPT=/tmp/sdl_src/Android.mk \
     NDK_APPLICATION_MK=/tmp/sdl_src/Application.mk \
     NDK_TOOLCHAIN_VERSION=4.9 \
     -j$(nproc --all) || exit 1
+
+# 6. Build the Source Engine App / Final APK Package
+echo "Building Final App Package..."
+if [ -d "project" ]; then
+    cd project
+    # Link or copy the freshly built SDL2 into the project's jni path if needed
+    export NDK_ROOT=$NDK_HOME
+    export SDK_ROOT=$WORKSPACE_DIR/android-sdk
+    
+    # Run ndk-build and ant to generate the real APK
+    "$NDK_HOME/ndk-build" -j$(nproc --all)
+    ant debug
+    cd ..
+fi
 
 echo "=== Build Workflow Script Finished Successfully ==="
