@@ -1,4 +1,4 @@
-name: Build android package
+Name: Build android package
 
 on: [push, pull_request]
 
@@ -20,6 +20,11 @@ jobs:
           git clone --depth 1 https://github.com/nillerusr/srcsdk.git
 
           DEPLOY_BRANCH=srceng-old-port COMMIT=$(git rev-parse HEAD) scripts/workflow.sh
+
+          # Collect build outputs into bin/ for artifact upload
+          mkdir -p bin
+          find . -name "*.apk" -exec cp {} bin/ \;
+          find /tmp/sdl_src -name "*.so" -exec cp {} bin/ \;
 
       - name: Upload Build Artifacts
         uses: actions/upload-artifact@v4
