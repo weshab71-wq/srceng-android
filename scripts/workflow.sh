@@ -109,7 +109,7 @@ include $(CLEAR_VARS)
 LOCAL_MODULE := jpeg
 
 LOCAL_SRC_FILES := \
-    jcapimin.c jcapistd.c jccoefct.c jccolor.c jcdctmgr.c jchuff.c \
+    jcapimin.c jcapistd.c jccoefct.c jcdctmgr.c jchuff.c \
     jcinit.c jcmainct.c jcmarker.c jcmaster.c jcomapi.c jcparam.c \
     jcphuff.c jcsample.c jctrans.c jdapimin.c jdapistd.c jdatadst.c \
     jdatasrc.c jdcoefct.c jdcolor.c jddctmgr.c jdhuff.c jdmainct.c \
@@ -134,13 +134,18 @@ EOF
 
 cd $WORKSPACE_DIR
 
-# 5. Clean SDL2 Build with OpenSL ES Enabled
+# 5. Clean SDL2 Build with Patched OpenSL ES Header Support
 echo "Building SDL2 natively with OpenSL ES audio support..."
 rm -rf /tmp/sdl_src
 git clone --depth 1 -b release-2.0.22 https://github.com/libsdl-org/SDL.git /tmp/sdl_src
 
 # Disable warnings
 sed -i '/-W/d' /tmp/sdl_src/Android.mk
+
+# Patch SDL_openslES.c with missing Android OpenSL ES float definitions
+if [ -f "/tmp/sdl_src/src/audio/openslES/SDL_openslES.c" ]; then
+    sed -i '1s/^/#include <SLES\/OpenSLES_AndroidConfiguration.h>\n#ifndef SL_ANDROID_KEY_PCM_FORMAT_EX\n#define SL_DATAFORMAT_PCM_EX 0x00000004\ntypedef struct SLDataFormat_PCM_EX_ {\n    SLuint32 formatType;\n    SLuint32 numChannels;\n    SLuint32 samplesPerSec;\n    SLuint32 bitsPerSample;\n    SLuint32 containerSize;\n    SLuint32 channelMask;\n    SLuint32 endianness;\n    SLuint32 representation;\n} SLDataFormat_PCM_EX;\n#define SL_ANDROID_PCM_REPRESENTATION_SIGNED_INT ((SLuint32) 0x00000001)\n#define SL_ANDROID_PCM_REPRESENTATION_UNSIGNED_INT ((SLuint32) 0x00000002)\n#define SL_ANDROID_PCM_REPRESENTATION_FLOAT ((SLuint32) 0x00000003)\n#endif\n/' /tmp/sdl_src/src/audio/openslES/SDL_openslES.c
+fi
 
 # Stub out hid.cpp to bypass GCC 4.9 template parsing bug in hidapi
 if [ -f "/tmp/sdl_src/src/hidapi/android/hid.cpp" ]; then
@@ -181,7 +186,7 @@ if [ -f "/tmp/sdl_src/include/SDL_egl.h" ]; then
     sed -i '1s/^/#include <stdint.h>\n#include <EGL\/egl.h>\n#include <EGL\/eglplatform.h>\ntypedef void *EGLImage;\ntypedef void *EGLImageKHR;\ntypedef void *EGLSync;\ntypedef void *EGLSyncKHR;\ntypedef void *EGLStreamKHR;\ntypedef intptr_t EGLAttrib;\ntypedef intptr_t EGLAttribKHR;\ntypedef uint64_t EGLTime;\ntypedef uint64_t EGLTimeKHR;\ntypedef uint64_t EGLGLuint64KHR;\ntypedef int EGLNativeFileDescriptorKHR;\n/' /tmp/sdl_src/include/SDL_egl.h
 fi
 
-# Application configuration: Keep OpenSL ES active, disable AAudio (unsupported on NDK r10e / API 19)
+# Application configuration: Keep OpenSL ES active, disable AAudio
 cat << 'EOF' > /tmp/sdl_src/Application.mk
 APP_ABI := armeabi-v7a
 APP_PLATFORM := android-19
