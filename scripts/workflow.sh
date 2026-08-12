@@ -142,12 +142,17 @@ git clone --depth 1 -b release-2.0.22 https://github.com/libsdl-org/SDL.git /tmp
 # Disable warnings
 sed -i '/-W/d' /tmp/sdl_src/Android.mk
 
-# Remove AAudio and OpenSL ES source file completely, add a safe plain C stub
+# Remove AAudio and OpenSL ES source file completely, add comprehensive plain C stubs
 rm -rf /tmp/sdl_src/src/audio/aaudio
 rm -f /tmp/sdl_src/src/audio/openslES/SDL_openslES.c
 
 cat << 'EOF' > /tmp/sdl_src/src/audio/openslES/SDL_openslES_stub.c
 void OpenslES_Bootstrap(void) {}
+void openslES_PauseDevices(void) {}
+void openslES_ResumeDevices(void) {}
+void aaudio_PauseDevices(void) {}
+void aaudio_ResumeDevices(void) {}
+void aaudio_DetectBrokenPlayState(void) {}
 EOF
 
 # Append the stub source to Android.mk so it compiles cleanly
