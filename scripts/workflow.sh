@@ -145,10 +145,6 @@ sed -i '/-W/d' /tmp/sdl_src/Android.mk
 # Remove AAudio
 rm -rf /tmp/sdl_src/src/audio/aaudio
 
-# Completely neutralize the floating point audio block in SDL_openslES.c causing the crash
-if [ -f "/tmp/sdl_src/src/audio/openslES/SDL_openslES.c" ];> /tmp/sdl_src/src/audio/openslES/SDL_openslES.c
-fi
-
 # Stub out hid.cpp to bypass GCC 4.9 template parsing bug in hidapi
 if [ -f "/tmp/sdl_src/src/hidapi/android/hid.cpp" ]; then
     cat << 'EOF' > /tmp/sdl_src/src/hidapi/android/hid.cpp
