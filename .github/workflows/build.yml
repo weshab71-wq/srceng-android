@@ -11,7 +11,7 @@ jobs:
       - name: Build
         run: |
           sudo apt-get update
-          sudo apt-get install -y make openjdk-8-jdk openjdk-8-jre ant-contrib ant python3-requests python3-pip
+          sudo apt-get install -y make openjdk-8-jdk openjdk-8-jre ant-contrib python3-requests python3-pip
           sudo pip3 install websocket-client
 
           # Clone dependencies directly to bypass broken submodule links
@@ -21,14 +21,11 @@ jobs:
 
           DEPLOY_BRANCH=srceng-old-port COMMIT=$(git rev-parse HEAD) scripts/workflow.sh
 
-          # Compile the main project package using Ant
-          export JAVA_HOME=/usr/lib/jvm/java-8-openjdk-amd64
-          ant debug
-
-          # Collect build outputs into bin/ for artifact upload, excluding SDK tools
+          # Collect built libraries and packages into bin/ for artifact upload
           mkdir -p bin
-          find . -maxdepth 3 -name "*.apk" ! -path "*/android-sdk/*" -exec cp {} bin/ \;
+          find . -name "*.apk" ! -path "*/android-sdk/*" -exec cp {} bin/ \;
           find /tmp/sdl_src -name "*.so" -exec cp {} bin/ \;
+          find . -name "*.so" -exec cp {} bin/ \;
 
       - name: Upload Build Artifacts
         uses: actions/upload-artifact@v4
