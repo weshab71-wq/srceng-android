@@ -208,14 +208,19 @@ NDK_MODULE_PATH="$NDK_HOME/sources" "$NDK_HOME/ndk-build" \
 
 # 6. Build Native Engine Libraries
 echo "Building Source Engine native libraries..."
-"$NDK_HOME/ndk-build" \
-    NDK_PROJECT_PATH=$WORKSPACE_DIR \
-    APP_ABI=armeabi-v7a \
-    APP_PLATFORM=android-19 \
-    APP_STL=stlport_static \
-    NDK_TOOLCHAIN_VERSION=4.9 \
-    NDK_MODULE_PATH="/tmp:/tmp/sdl_src" \
-    -j$(nproc --all) || true
+ENGINE_MK=$(find $WORKSPACE_DIR -name "Android.mk" ! -path "*/android-sdk/*" ! -path "*/ndk-binaries/*" ! -path "/tmp/*" | head -n 1)
+
+if [ -n "$ENGINE_MK" ]; then
+    "$NDK_HOME/ndk-build" \
+        NDK_PROJECT_PATH=$(dirname $(dirname "$ENGINE_MK")) \
+        APP_BUILD_SCRIPT="$ENGINE_MK" \
+        APP_ABI=armeabi-v7a \
+        APP_PLATFORM=android-19 \
+        APP_STL=stlport_static \
+        NDK_TOOLCHAIN_VERSION=4.9 \
+        NDK_MODULE_PATH="/tmp:/tmp/sdl_src:$WORKSPACE_DIR" \
+        -j$(nproc --all) || true
+fi
 
 # 7. Package Launcher APK
 echo "Packaging Android APK..."
@@ -232,9 +237,13 @@ if [ -n "$LAUNCHER_DIR" ] && [ -d "$LAUNCHER_DIR" ]; then
     find $WORKSPACE_DIR -name "*.so" -exec cp {} libs/armeabi-v7a/ \; 2>/dev/null || true
     find /tmp/sdl_src -name "*.so" -exec cp {} libs/armeabi-v7a/ \; 2>/dev/null || true
 
-    # Build the debug APK
+    # Build the debug APK with legacy Android SDK path
     if [ -f "build.xml" ]; then
-        ant debug
+        if [ -d "$WORKSPACE_DIR/android-sdk" ]; then
+            ant debug -Dsdk.dir="$WORKSPACE_DIR/android-sdk"
+        else
+            ant debug
+        fi
     elif [ -f "gradlew" ]; then
         chmod +x gradlew
         ./gradlew assembleDebug
