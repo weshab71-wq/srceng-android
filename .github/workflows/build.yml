@@ -1,4 +1,4 @@
-name: Build android package
+Name: Build android package
 
 on: [push, pull_request, workflow_dispatch]
 
@@ -31,20 +31,25 @@ jobs:
           git clone --depth 1 https://gitlab.com/LostGamer/android-sdk
           git clone --depth 1 https://github.com/nillerusr/srcsdk.git
 
+          # Apply Portal 2 patches (Package ID, App Name, and Launch Mode)
+          find . -type f -name 'build.gradle' -exec sed -i 's/com.valvesoftware.source/com.valvesoftware.portal2/g' {} +
+          find . -type f -name 'strings.xml' -exec sed -i 's/Source Engine/Portal 2/g' {} +
+          find . -type f -name 'AndroidManifest.xml' -exec sed -i "s/launchMode='standard'/launchMode='singleTask'/g" {} +
+
           # Grant execution permissions and run workflow script
-          if [ -f "scripts/workflow.sh" ]; then
+          if [ -f 'scripts/workflow.sh' ]; then
             chmod +x scripts/workflow.sh
             DEPLOY_BRANCH=srceng-old-port COMMIT=$(git rev-parse HEAD) scripts/workflow.sh
-          elif [ -f "workflow.sh" ]; then
+          elif [ -f 'workflow.sh' ]; then
             chmod +x workflow.sh
             DEPLOY_BRANCH=srceng-old-port COMMIT=$(git rev-parse HEAD) ./workflow.sh
           fi
 
           # Collect built libraries and packages into bin/ for artifact upload
           mkdir -p bin
-          find . -name "*.apk" ! -path "*/android-sdk/*" -exec cp {} bin/ \; 2>/dev/null || true
-          find /tmp/sdl_src -name "*.so" -exec cp {} bin/ \; 2>/dev/null || true
-          find . -name "*.so" ! -path "*/android-sdk/*" -exec cp {} bin/ \; 2>/dev/null || true
+          find . -name '*.apk' ! -path '*/android-sdk/*' -exec cp {} bin/ \; 2>/dev/null || true
+          find /tmp/sdl_src -name '*.so' -exec cp {} bin/ \; 2>/dev/null || true
+          find . -name '*.so' ! -path '*/android-sdk/*' -exec cp {} bin/ \; 2>/dev/null || true
 
       - name: Upload Build Artifacts
         uses: actions/upload-artifact@v4
