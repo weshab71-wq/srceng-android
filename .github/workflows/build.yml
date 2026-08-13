@@ -31,14 +31,9 @@ jobs:
           git clone --depth 1 https://gitlab.com/LostGamer/android-sdk
           git clone --depth 1 https://github.com/nillerusr/srcsdk.git
 
-          # Patch Java/Android configuration files
-          find . -type f -name 'build.gradle' -exec sed -i 's/com.valvesoftware.source/com.valvesoftware.portal2/g' {} +
+          # Set app display name to Portal 2 (keeps internal package ID unchanged to avoid JNI crashes)
           find . -type f -name 'strings.xml' -exec sed -i 's/Source Engine/Portal 2/g' {} +
           find . -type f -name 'AndroidManifest.xml' -exec sed -i "s/launchMode='standard'/launchMode='singleTask'/g" {} +
-
-          # Patch native C/C++ JNI class references (slashes and dots)
-          find . -type f \( -name '*.cpp' -o -name '*.c' -o -name '*.h' -o -name '*.hpp' \) -exec sed -i 's|com/valvesoftware/source|com/valvesoftware/portal2|g' {} +
-          find . -type f \( -name '*.cpp' -o -name '*.c' -o -name '*.h' -o -name '*.hpp' \) -exec sed -i 's|com.valvesoftware.source|com.valvesoftware.portal2|g' {} +
 
           # Grant execution permissions and run workflow script
           if [ -f 'scripts/workflow.sh' ]; then
