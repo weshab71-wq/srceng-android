@@ -1,4 +1,4 @@
-name: Build android package
+Name: Build android package
 
 on: [push, pull_request, workflow_dispatch]
 
@@ -30,6 +30,9 @@ jobs:
           git clone --depth 1 https://gitlab.com/LostGamer/ndk-binaries
           git clone --depth 1 https://gitlab.com/LostGamer/android-sdk
           git clone --depth 1 https://github.com/nillerusr/srcsdk.git
+
+          # Nuke the NDK test folder so Ant doesn't trip over missing test build files
+          rm -rf android-ndk-r10e/tests
 
           # Set app display name to Portal 2 (keeps internal package ID unchanged to avoid JNI crashes)
           find . -type f -name 'strings.xml' -exec sed -i 's/Source Engine/Portal 2/g' {} +
