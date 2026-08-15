@@ -31,10 +31,8 @@ jobs:
           git clone --depth 1 https://gitlab.com/LostGamer/android-sdk
           git clone --depth 1 https://github.com/nillerusr/srcsdk.git
 
-          # Immediately nuke the tests directories to stop Ant errors
-          rm -rf ndk-binaries/tests
+          # Explicitly wipe out the NDK r10e tests folder that Ant tries to compile
           rm -rf android-ndk-r10e/tests
-          find . -type d -name "tests" -exec rm -rf {} + || true
 
           # Set app display name to Portal 2 (keeps internal package ID unchanged to avoid JNI crashes)
           find . -type f -name 'strings.xml' -exec sed -i 's/Source Engine/Portal 2/g' {} +
