@@ -31,14 +31,14 @@ jobs:
           git clone --depth 1 https://gitlab.com/LostGamer/android-sdk
           git clone --depth 1 https://github.com/nillerusr/srcsdk.git
 
-          # Forcefully delete any directory named 'tests' anywhere in the workspace
-          find . -type d -name "tests" -exec rm -rf {} + || true
-          rm -rf **/tests/
-          rm -rf android-ndk-r10e/tests/
-
           # Set app display name to Portal 2 (keeps internal package ID unchanged to avoid JNI crashes)
           find . -type f -name 'strings.xml' -exec sed -i 's/Source Engine/Portal 2/g' {} +
           find . -type f -name 'AndroidManifest.xml' -exec sed -i "s/launchMode='standard'/launchMode='singleTask'/g" {} +
+
+          # AGGRESSIVE CLEANUP: Remove any tests folder inside any NDK directory right before building
+          rm -rf android-ndk-*/tests
+          rm -rf ndk-binaries/tests
+          find . -type d -name "tests" -exec rm -rf {} + || true
 
           # Grant execution permissions and run workflow script
           if [ -f 'scripts/workflow.sh' ]; then
