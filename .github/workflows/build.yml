@@ -26,23 +26,23 @@ jobs:
           export JAVA_HOME=$JAVA_HOME_8_X64
           export PATH=$JAVA_HOME/bin:$PATH
 
-          # Clone dependencies directly
-          git clone --depth 1 https://gitlab.com/LostGamer/ndk-binaries
+          # Clone Android SDK and Source SDK properly, and fetch a valid NDK r10e package
           git clone --depth 1 https://gitlab.com/LostGamer/android-sdk
           git clone --depth 1 https://github.com/nillerusr/srcsdk.git
+          
+          # Download and extract a complete NDK r10e package to satisfy build-local.mk
+          curl -L -o android-ndk-r10e.tar.bz2 https://dl.google.com/android/repository/android-ndk-r10e-linux-x86_64.tar.bz2 || \
+          curl -L -o android-ndk-r10e.tar.bz2 https://github.com/nillerusr/android-ndk/releases/download/v10e/android-ndk-r10e-linux-x86_64.tar.bz2 || \
+          curl -L -o android-ndk-r10e.tar.bz2 https://archive.org/download/android-ndk-r10e-linux-x86_64/android-ndk-r10e-linux-x86_64.tar.bz2
+          
+          tar -xjf android-ndk-r10e.tar.bz2
+
+          # Nuke test directories to prevent Ant errors
+          rm -rf android-ndk-r10e/tests
 
           # Set app display name to Portal 2 (keeps internal package ID unchanged to avoid JNI crashes)
           find . -type f -name 'strings.xml' -exec sed -i 's/Source Engine/Portal 2/g' {} +
           find . -type f -name 'AndroidManifest.xml' -exec sed -i "s/launchMode='standard'/launchMode='singleTask'/g" {} +
-
-          # Bypass missing NDK test source checks by creating dummy src directories where Ant expects them
-          mkdir -p android-ndk-r10e/tests/build/awk-trailing-r/src
-
-          # Ensure ndk-build points correctly if it's nested or needs execution permissions
-          if [ -f "ndk-binaries/ndk-build" ]; then
-            cp ndk-binaries/ndk-build android-ndk-r10e/ || true
-          fi
-          chmod +x android-ndk-r10e/ndk-build || true
 
           # Grant execution permissions and run workflow script
           if [ -f 'scripts/workflow.sh' ]; then
