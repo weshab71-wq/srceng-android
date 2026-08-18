@@ -35,10 +35,8 @@ jobs:
           find . -type f -name 'strings.xml' -exec sed -i 's/Source Engine/Portal 2/g' {} +
           find . -type f -name 'AndroidManifest.xml' -exec sed -i "s/launchMode='standard'/launchMode='singleTask'/g" {} +
 
-          # AGGRESSIVE CLEANUP: Remove any tests folder inside any NDK directory right before building
-          rm -rf android-ndk-*/tests
-          rm -rf ndk-binaries/tests
-          find . -type d -name "tests" -exec rm -rf {} + || true
+          # Bypass missing NDK test source checks by creating dummy src directories where Ant expects them
+          mkdir -p android-ndk-r10e/tests/build/awk-trailing-r/src
 
           # Grant execution permissions and run workflow script
           if [ -f 'scripts/workflow.sh' ]; then
