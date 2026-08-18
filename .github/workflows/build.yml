@@ -38,6 +38,12 @@ jobs:
           # Bypass missing NDK test source checks by creating dummy src directories where Ant expects them
           mkdir -p android-ndk-r10e/tests/build/awk-trailing-r/src
 
+          # Ensure ndk-build points correctly if it's nested or needs execution permissions
+          if [ -f "ndk-binaries/ndk-build" ]; then
+            cp ndk-binaries/ndk-build android-ndk-r10e/ || true
+          fi
+          chmod +x android-ndk-r10e/ndk-build || true
+
           # Grant execution permissions and run workflow script
           if [ -f 'scripts/workflow.sh' ]; then
             chmod +x scripts/workflow.sh
