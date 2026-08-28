@@ -19,23 +19,21 @@ jobs:
           # Enable 32-bit architecture for legacy Android SDK build tools (aapt)
           sudo dpkg --add-architecture i386
           sudo apt-get update
-          sudo apt-get install -y make ant ant-contrib python3-requests python3-pip zip lib32z1 lib32stdc++6 zlib1g:i386
+          sudo apt-get install -y make ant ant-contrib python3-requests python3-pip zip lib32z1 lib32stdc++6 zlib1g:i386 p7zip-full
           sudo pip3 install websocket-client
 
           # Force JAVA_HOME to Java 8
           export JAVA_HOME=$JAVA_HOME_8_X64
           export PATH=$JAVA_HOME/bin:$PATH
 
-          # Clone Android SDK and Source SDK safely
+          # Clone Android SDK and Source SDK
           git clone --depth 1 https://gitlab.com/LostGamer/android-sdk
           git clone --depth 1 https://github.com/nillerusr/srcsdk.git
 
-          # Use an absolute raw binary URL for NDK r10e archive to prevent HTML redirect errors
-          curl -L -o ndk.tar.bz2 https://dl.google.com/android/repository/android-ndk-r10e-linux-x86_64.tar.bz2 || \
-          curl -L -o ndk.tar.bz2 https://raw.githubusercontent.com/FelisCatus/android-ndk-r10e/master/android-ndk-r10e-linux-x86_64.tar.bz2
-
-          tar -xjf ndk.tar.bz2
-          mv android-ndk-r10e* android-ndk-r10e
+          # Download and extract the official NDK r10e self-extracting binary
+          wget -q https://dl.google.com/android/ndk/android-ndk-r10e-linux-x86_64.bin -O ndk.bin
+          chmod +x ndk.bin
+          ./ndk.bin > /dev/null
 
           # Nuke test directories to prevent Ant errors
           rm -rf android-ndk-r10e/tests
