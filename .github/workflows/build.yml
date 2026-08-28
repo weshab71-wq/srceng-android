@@ -35,14 +35,32 @@ jobs:
           chmod +x ndk.bin
           ./ndk.bin > /dev/null
 
-          # Nuke test directories to prevent Ant errors
-          rm -rf android-ndk-r10e/tests
+          # Nuke NDK test & sample directories to prevent false-positive APK picks
+          rm -rf android-ndk-r10e/tests android-ndk-r10e/samples
 
-          # Set app display name to Portal 2 (keeps internal package ID unchanged to avoid JNI crashes)
+          # Set app display name to Portal 2
           find . -type f -name 'strings.xml' -exec sed -i 's/Source Engine/Portal 2/g' {} +
-          find . -type f -name 'AndroidManifest.xml' -exec sed -i "s/launchMode='standard'/launchMode='singleTask'/g" {} +
+          find . -type f -name "AndroidManifest.xml" -exec sed -i "s/launchMode='standard'/launchMode='singleTask'/g" {} +
 
-          # Bump targetSdkVersion to 28 to bypass modern Android low target SDK install blocks
+          # Patch AndroidManifest.xml for Android 12+ compatibility (android:exported="true" and targetSdkVersion 28)
+          python3 -c "
+          import glob, xml.etree.ElementTree as ET
+          ET.register_namespace('android', 'http://schemas.android.com/apk/res/android')
+          ns = '{http://schemas.android.com/apk/res/android}'
+
+          for manifest in glob.glob('**/AndroidManifest.xml', recursive=True):
+              try:
+                  tree = ET.parse(manifest)
+                  root = tree.getroot()
+                  for elem in root.iter():
+                      if elem.tag in ['activity', 'service', 'receiver']:
+                          if f'{ns}exported' not in elem.attrib:
+                              elem.attrib[f'{ns}exported'] = 'true'
+                  tree.write(manifest, encoding='utf-8', xml_declaration=True)
+              except Exception as e:
+                  print(f'Error patching {manifest}: {e}')
+          "
+
           find . -type f -name 'AndroidManifest.xml' -exec sed -i 's/targetSdkVersion="[0-9]*"/targetSdkVersion="28"/g' {} +
 
           # Grant execution permissions and run workflow script
@@ -59,13 +77,13 @@ jobs:
           keytool -genkeypair -v -keystore debug.keystore -storepass android -alias portal2key -keypass android -keyalg RSA -keysize 2048 -validity 10000 -dname "CN=Android Debug,O=Android,C=US"
 
           mkdir -p bin
-          RAW_APK=$(find . -name 'NativeCodec-debug.apk' | head -n 1)
+
+          # Find the engine APK (ignoring SDK and NDK paths)
+          RAW_APK=$(find . -not -path '*/android-ndk-r10e/*' -not -path '*/android-sdk/*' -name '*.apk' ! -name '*unaligned.apk' | head -n 1)
 
           if [ -n "$RAW_APK" ]; then
             zipalign -v 4 "$RAW_APK" bin/Portal2-aligned.apk
-            apksigner sign --ks debug.keystore --ks-pass pass:android --key-pass pass:android --out bin/Portal2-Installable.apk bin/Portal2-aligned.apk
-          else
-            find . -name '*.apk' ! -path '*/android-sdk/*' -exec cp {} bin/ \; 2>/dev/null || true
+            apksigner sign --v1-signing-enabled true --v2-signing-enabled true --ks debug.keystore --ks-pass pass:android --key-pass pass:android --out bin/Portal2-Installable.apk bin/Portal2-aligned.apk
           fi
 
       - name: Upload Build Artifacts
