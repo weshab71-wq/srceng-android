@@ -26,11 +26,16 @@ jobs:
           export JAVA_HOME=$JAVA_HOME_8_X64
           export PATH=$JAVA_HOME/bin:$PATH
 
-          # Clone Android SDK, Source SDK, and NDK r10e directly via git to ensure valid files
+          # Clone Android SDK and Source SDK safely
           git clone --depth 1 https://gitlab.com/LostGamer/android-sdk
           git clone --depth 1 https://github.com/nillerusr/srcsdk.git
-          git clone --depth 1 -b r10e https://github.com/nillerusr/android-ndk.git android-ndk-r10e || \
-          git clone --depth 1 https://github.com/nillerusr/android-ndk.git android-ndk-r10e
+
+          # Download NDK r10e archive directly via curl to avoid git credential hangs
+          curl -L -o ndk.zip https://github.com/nillerusr/android-ndk/archive/refs/tags/v10e.zip || \
+          curl -L -o ndk.zip https://codeload.github.com/nillerusr/android-ndk/zip/refs/tags/v10e.zip
+          
+          unzip -q ndk.zip
+          mv android-ndk-10e android-ndk-r10e || mv android-ndk-* android-ndk-r10e
 
           # Nuke test directories to prevent Ant errors
           rm -rf android-ndk-r10e/tests
