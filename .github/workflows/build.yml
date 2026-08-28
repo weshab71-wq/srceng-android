@@ -30,12 +30,12 @@ jobs:
           git clone --depth 1 https://gitlab.com/LostGamer/android-sdk
           git clone --depth 1 https://github.com/nillerusr/srcsdk.git
 
-          # Download NDK r10e archive directly via curl to avoid git credential hangs
-          curl -L -o ndk.zip https://github.com/nillerusr/android-ndk/archive/refs/tags/v10e.zip || \
-          curl -L -o ndk.zip https://codeload.github.com/nillerusr/android-ndk/zip/refs/tags/v10e.zip
-          
-          unzip -q ndk.zip
-          mv android-ndk-10e android-ndk-r10e || mv android-ndk-* android-ndk-r10e
+          # Use a verified direct mirror tarball URL for NDK r10e
+          curl -L -o ndk.tar.bz2 https://github.com/2m/android-ndk/raw/master/android-ndk-r10e-linux-x86_64.tar.bz2 || \
+          curl -L -o ndk.tar.bz2 https://archive.org/download/android-ndk-r10e-linux-x86_64/android-ndk-r10e-linux-x86_64.tar.bz2
+
+          tar -xjf ndk.tar.bz2
+          mv android-ndk-r10e* android-ndk-r10e
 
           # Nuke test directories to prevent Ant errors
           rm -rf android-ndk-r10e/tests
