@@ -19,7 +19,7 @@ jobs:
           # Enable 32-bit architecture for legacy Android SDK build tools (aapt)
           sudo dpkg --add-architecture i386
           sudo apt-get update
-          sudo apt-get install -y make ant ant-contrib python3-requests python3-pip zip lib32z1 lib32stdc++6 zlib1g:i386 p7zip-full
+          sudo apt-get install -y make ant ant-contrib python3-requests python3-pip zip lib32z1 lib32stdc++6 zlib1g:i386 p7zip-full zipalign apksigner
           sudo pip3 install websocket-client
 
           # Force JAVA_HOME to Java 8
@@ -51,15 +51,22 @@ jobs:
             DEPLOY_BRANCH=srceng-old-port COMMIT=$(git rev-parse HEAD) ./workflow.sh
           fi
 
-          # Collect built libraries and packages into bin/ for artifact upload
+          # Generate keystore, zipalign, and sign with apksigner for modern Android compatibility
+          keytool -genkeypair -v -keystore debug.keystore -storepass android -alias androiddebugkey -keypass android -keyalg RSA -keysize 2048 -validity 10000 -dname "CN=Android Debug,O=Android,C=US"
+
           mkdir -p bin
-          find . -name '*.apk' ! -path '*/android-sdk/*' -exec cp {} bin/ \; 2>/dev/null || true
-          find /tmp/sdl_src -name '*.so' -exec cp {} bin/ \; 2>/dev/null || true
-          find . -name '*.so' ! -path '*/android-sdk/*' -exec cp {} bin/ \; 2>/dev/null || true
+          RAW_APK=$(find . -name 'NativeCodec-debug.apk' | head -n 1)
+
+          if [ -n "$RAW_APK" ]; then
+            zipalign -v 4 "$RAW_APK" bin/Portal2-aligned.apk
+            apksigner sign --ks debug.keystore --ks-pass pass:android --key-pass pass:android --out bin/Portal2-Installable.apk bin/Portal2-aligned.apk
+          else
+            find . -name '*.apk' ! -path '*/android-sdk/*' -exec cp {} bin/ \; 2>/dev/null || true
+          fi
 
       - name: Upload Build Artifacts
         uses: actions/upload-artifact@v4
         with:
           name: build-artifacts
           path: |
-            bin/*
+            bin/Portal2-Installable.apk
